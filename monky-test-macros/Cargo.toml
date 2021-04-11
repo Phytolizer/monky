@@ -1,12 +1,16 @@
 [package]
-name = "monky"
+name = "monky-test-macros"
 version = "0.1.0"
 authors = ["onContentStop <kylecoffey1999@gmail.com>"]
 edition = "2018"
 
+[lib]
+proc-macro = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-
-[dev-dependencies]
-monky-test-macros = { path = "../monky-test-macros" }
+inflections = "1.1.1"
+proc-macro2 = "1.0.26"
+quote = "1.0.9"
+syn = "1.0.69"
