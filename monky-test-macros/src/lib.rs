@@ -9,6 +9,8 @@ use syn::punctuated::Punctuated;
 use syn::token::Brace;
 use syn::Expr;
 use syn::Ident;
+use syn::LitChar;
+use syn::LitStr;
 use syn::Token;
 use syn::Type;
 
@@ -157,7 +159,67 @@ pub fn test_struct(input: TokenStream) -> TokenStream {
         #tests
     };
 
-    eprintln!("{}", output);
+    output.into()
+}
 
+struct SimpleCharsInput {
+    matches: Vec<LitChar>,
+    kinds: Vec<syn::Path>,
+    lits: Vec<LitStr>,
+}
+
+impl Parse for SimpleCharsInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut matches = vec![];
+        let mut kinds = vec![];
+        let mut lits = vec![];
+
+        while let Ok(mat) = input.parse::<LitChar>() {
+            input.parse::<Token![=>]>()?;
+            let kind = input.parse::<syn::Path>()?;
+            let lit = input.parse::<LitStr>()?;
+            input.parse::<Token![,]>()?;
+
+            matches.push(mat);
+            kinds.push(kind);
+            lits.push(lit);
+        }
+
+        Ok(Self {
+            matches,
+            kinds,
+            lits,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn lexer_simple_chars(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as SimpleCharsInput);
+
+    let mut match_arms = vec![];
+    for ((mat, kind), lit) in input
+        .matches
+        .iter()
+        .zip(input.kinds.iter())
+        .zip(input.lits.iter())
+    {
+        let match_arm = quote! {
+            #mat => {
+                tok = Token {
+                    kind: #kind,
+                    literal: String::from(#lit),
+                };
+            }
+        };
+        match_arms.push(match_arm);
+    }
+
+    let output = quote! {
+        match self.ch {
+            #(#match_arms)*
+            _ => {}
+        }
+    };
     output.into()
 }

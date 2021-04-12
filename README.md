@@ -13,5 +13,5 @@ it is implemented in Rust.
 let i = 0;
 let haha = fn(x) {
     x // comment
-}
+};
 ```
