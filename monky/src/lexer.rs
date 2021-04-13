@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::iter::Peekable;
 use std::str::CharIndices;
 
+use maplit::hashmap;
 use once_cell::sync::Lazy;
 
 use crate::token::Token;
@@ -27,12 +28,15 @@ impl IsLetter for char {
 }
 
 static KEYWORDS: Lazy<HashMap<&'static str, TokenKind>> = Lazy::new(|| {
-    let mut keywords = HashMap::new();
-
-    keywords.insert("fn", TokenKind::Function);
-    keywords.insert("let", TokenKind::Let);
-
-    keywords
+    hashmap! {
+        "fn" => TokenKind::Function,
+        "let" => TokenKind::Let,
+        "if" => TokenKind::If,
+        "else" => TokenKind::Else,
+        "return" => TokenKind::Return,
+        "true" => TokenKind::True,
+        "false" => TokenKind::False,
+    }
 });
 
 impl<'s> Lexer<'s> {
@@ -96,6 +100,12 @@ impl<'s> Lexer<'s> {
             ')' => TokenKind::ParenR ")",
             '{' => TokenKind::BraceL "{",
             '}' => TokenKind::BraceR "}",
+            '!' => TokenKind::Bang "!",
+            '-' => TokenKind::Minus "-",
+            '/' => TokenKind::Slash "/",
+            '*' => TokenKind::Star "*",
+            '<' => TokenKind::Lt "<",
+            '>' => TokenKind::Gt ">",
             '\0' => TokenKind::Eof "",
         }
 
@@ -136,6 +146,14 @@ mod tests {
             };
             
             let result = add(five, ten);
+            !-/*5;
+            5 < 10 > 5;
+
+            if (5 < 10) {
+                return true;
+            } else {
+                return false;
+            }
             ";
 
         test_struct!(
@@ -179,6 +197,35 @@ mod tests {
                 {TokenKind::Ident, "ten"},
                 {TokenKind::ParenR, ")"},
                 {TokenKind::Semicolon, ";"},
+                {TokenKind::Bang, "!"},
+                {TokenKind::Minus, "-"},
+                {TokenKind::Slash, "/"},
+                {TokenKind::Star, "*"},
+                {TokenKind::Int, "5"},
+                {TokenKind::Semicolon, ";"},
+                {TokenKind::Int, "5"},
+                {TokenKind::Lt, "<"},
+                {TokenKind::Int, "10"},
+                {TokenKind::Gt, ">"},
+                {TokenKind::Int, "5"},
+                {TokenKind::Semicolon, ";"},
+                {TokenKind::If, "if"},
+                {TokenKind::ParenL, "("},
+                {TokenKind::Int, "5"},
+                {TokenKind::Lt, "<"},
+                {TokenKind::Int, "10"},
+                {TokenKind::ParenR, ")"},
+                {TokenKind::BraceL, "{"},
+                {TokenKind::Return, "return"},
+                {TokenKind::True, "true"},
+                {TokenKind::Semicolon, ";"},
+                {TokenKind::BraceR, "}"},
+                {TokenKind::Else, "else"},
+                {TokenKind::BraceL, "{"},
+                {TokenKind::Return, "return"},
+                {TokenKind::False, "false"},
+                {TokenKind::Semicolon, ";"},
+                {TokenKind::BraceR, "}"},
                 {TokenKind::Eof, ""},
             }
         );

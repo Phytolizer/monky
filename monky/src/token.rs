@@ -13,6 +13,13 @@ pub enum TokenKind {
     // Operators
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Star,
+    Slash,
+
+    Lt,
+    Gt,
 
     // Delimiters
     Comma,
@@ -26,6 +33,11 @@ pub enum TokenKind {
     // Keywords
     Function,
     Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 }
 
 impl Display for TokenKind {
@@ -48,6 +60,17 @@ impl Display for TokenKind {
                 TokenKind::BraceR => "}",
                 TokenKind::Function => "FUNCTION",
                 TokenKind::Let => "LET",
+                TokenKind::Minus => "-",
+                TokenKind::Bang => "!",
+                TokenKind::Star => "*",
+                TokenKind::Slash => "/",
+                TokenKind::Lt => "<",
+                TokenKind::Gt => ">",
+                TokenKind::If => "if",
+                TokenKind::Else => "else",
+                TokenKind::Return => "return",
+                TokenKind::True => "true",
+                TokenKind::False => "false",
             }
         )
     }
