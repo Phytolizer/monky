@@ -10,7 +10,6 @@ use syn::token::Brace;
 use syn::Expr;
 use syn::Ident;
 use syn::LitChar;
-use syn::LitStr;
 use syn::Token;
 use syn::Type;
 

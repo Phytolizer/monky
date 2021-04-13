@@ -3,7 +3,6 @@ use dialoguer::console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Input;
 use monky::lexer::Lexer;
-use monky::token::TokenKind;
 
 fn main() {
     log4rs::init_file("monky-log.yml", Default::default()).unwrap();
