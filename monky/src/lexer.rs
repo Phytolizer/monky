@@ -57,6 +57,11 @@ impl<'s> Lexer<'s> {
         self.ch = nc;
     }
 
+    fn peek_char(&mut self) -> char {
+        let (_, c) = self.input.peek().unwrap_or(&(0, '\0'));
+        *c
+    }
+
     fn read_identifier(&mut self) -> String {
         let mut ident = String::new();
         while self.ch.is_letter() {
@@ -92,22 +97,40 @@ impl<'s> Lexer<'s> {
         self.skip_whitespace();
 
         lexer_simple_chars! {
-            '=' => TokenKind::Assign "=",
-            '+' => TokenKind::Plus "+",
-            ',' => TokenKind::Comma ",",
-            ';' => TokenKind::Semicolon ";",
-            '(' => TokenKind::ParenL "(",
-            ')' => TokenKind::ParenR ")",
-            '{' => TokenKind::BraceL "{",
-            '}' => TokenKind::BraceR "}",
-            '!' => TokenKind::Bang "!",
-            '-' => TokenKind::Minus "-",
-            '/' => TokenKind::Slash "/",
-            '*' => TokenKind::Star "*",
-            '<' => TokenKind::Lt "<",
-            '>' => TokenKind::Gt ">",
-            '\0' => TokenKind::Eof "",
+            '=' => TokenKind::Assign,
+            '+' => TokenKind::Plus,
+            ',' => TokenKind::Comma,
+            ';' => TokenKind::Semicolon,
+            '(' => TokenKind::ParenL,
+            ')' => TokenKind::ParenR,
+            '{' => TokenKind::BraceL,
+            '}' => TokenKind::BraceR,
+            '-' => TokenKind::Minus,
+            '!' => TokenKind::Bang,
+            '/' => TokenKind::Slash,
+            '*' => TokenKind::Star,
+            '<' => TokenKind::Lt,
+            '>' => TokenKind::Gt,
+            '\0' => TokenKind::Eof,
         }
+
+        match self.ch {
+            '=' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    tok.kind = TokenKind::Eq;
+                }
+            }
+            '!' => {
+                if self.peek_char() == '=' {
+                    self.read_char();
+                    tok.kind = TokenKind::Neq;
+                }
+            }
+            _ => {}
+        }
+
+        tok.literal = tok.kind.to_string();
 
         if tok.kind == TokenKind::Illegal {
             if self.ch.is_letter() {
@@ -154,6 +177,9 @@ mod tests {
             } else {
                 return false;
             }
+
+            10 == 10;
+            10 != 9;
             ";
 
         test_struct!(
@@ -226,6 +252,14 @@ mod tests {
                 {TokenKind::False, "false"},
                 {TokenKind::Semicolon, ";"},
                 {TokenKind::BraceR, "}"},
+                {TokenKind::Int, "10"},
+                {TokenKind::Eq, "=="},
+                {TokenKind::Int, "10"},
+                {TokenKind::Semicolon, ";"},
+                {TokenKind::Int, "10"},
+                {TokenKind::Neq, "!="},
+                {TokenKind::Int, "9"},
+                {TokenKind::Semicolon, ";"},
                 {TokenKind::Eof, ""},
             }
         );
@@ -235,7 +269,9 @@ mod tests {
         for test in tests {
             let tok = l.next_token();
 
+            eprintln!("{} == {}", tok.kind, test.expected_kind);
             assert_eq!(tok.kind, test.expected_kind);
+            eprintln!("'{}' == '{}'", tok.literal, test.expected_literal);
             assert_eq!(tok.literal, test.expected_literal);
         }
     }

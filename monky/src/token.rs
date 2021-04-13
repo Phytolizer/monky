@@ -20,6 +20,8 @@ pub enum TokenKind {
 
     Lt,
     Gt,
+    Eq,
+    Neq,
 
     // Delimiters
     Comma,
@@ -47,7 +49,7 @@ impl Display for TokenKind {
             "{}",
             match self {
                 TokenKind::Illegal => "ILLEGAL",
-                TokenKind::Eof => "EOF",
+                TokenKind::Eof => "",
                 TokenKind::Ident => "IDENT",
                 TokenKind::Int => "INT",
                 TokenKind::Assign => "=",
@@ -58,8 +60,8 @@ impl Display for TokenKind {
                 TokenKind::ParenR => ")",
                 TokenKind::BraceL => "{",
                 TokenKind::BraceR => "}",
-                TokenKind::Function => "FUNCTION",
-                TokenKind::Let => "LET",
+                TokenKind::Function => "fn",
+                TokenKind::Let => "let",
                 TokenKind::Minus => "-",
                 TokenKind::Bang => "!",
                 TokenKind::Star => "*",
@@ -71,6 +73,8 @@ impl Display for TokenKind {
                 TokenKind::Return => "return",
                 TokenKind::True => "true",
                 TokenKind::False => "false",
+                TokenKind::Eq => "==",
+                TokenKind::Neq => "!=",
             }
         )
     }

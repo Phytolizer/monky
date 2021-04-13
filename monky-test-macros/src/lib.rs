@@ -165,31 +165,23 @@ pub fn test_struct(input: TokenStream) -> TokenStream {
 struct SimpleCharsInput {
     matches: Vec<LitChar>,
     kinds: Vec<syn::Path>,
-    lits: Vec<LitStr>,
 }
 
 impl Parse for SimpleCharsInput {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut matches = vec![];
         let mut kinds = vec![];
-        let mut lits = vec![];
 
         while let Ok(mat) = input.parse::<LitChar>() {
             input.parse::<Token![=>]>()?;
             let kind = input.parse::<syn::Path>()?;
-            let lit = input.parse::<LitStr>()?;
             input.parse::<Token![,]>()?;
 
             matches.push(mat);
             kinds.push(kind);
-            lits.push(lit);
         }
 
-        Ok(Self {
-            matches,
-            kinds,
-            lits,
-        })
+        Ok(Self { matches, kinds })
     }
 }
 
@@ -198,17 +190,12 @@ pub fn lexer_simple_chars(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as SimpleCharsInput);
 
     let mut match_arms = vec![];
-    for ((mat, kind), lit) in input
-        .matches
-        .iter()
-        .zip(input.kinds.iter())
-        .zip(input.lits.iter())
-    {
+    for (mat, kind) in input.matches.iter().zip(input.kinds.iter()) {
         let match_arm = quote! {
             #mat => {
                 tok = Token {
                     kind: #kind,
-                    literal: String::from(#lit),
+                    literal: #kind.to_string(),
                 };
             }
         };
