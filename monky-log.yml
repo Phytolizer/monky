@@ -1,0 +1,8 @@
+appenders:
+  stderr:
+    kind: console
+
+root:
+  level: info
+  appenders:
+    - stderr

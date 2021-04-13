@@ -87,14 +87,22 @@ impl<'s> Lexer<'s> {
             self.read_char();
         }
     }
+}
 
-    pub fn next_token(&mut self) -> Token {
+impl<'s> Iterator for Lexer<'s> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
         let mut tok = Token {
             kind: TokenKind::Illegal,
             literal: String::new(),
         };
 
         self.skip_whitespace();
+
+        if self.ch == '\0' {
+            return None;
+        }
 
         lexer_simple_chars! {
             '=' => TokenKind::Assign,
@@ -111,7 +119,6 @@ impl<'s> Lexer<'s> {
             '*' => TokenKind::Star,
             '<' => TokenKind::Lt,
             '>' => TokenKind::Gt,
-            '\0' => TokenKind::Eof,
         }
 
         match self.ch {
@@ -139,16 +146,16 @@ impl<'s> Lexer<'s> {
                     .get(&tok.literal.as_str())
                     .copied()
                     .unwrap_or(TokenKind::Ident);
-                return tok;
+                return Some(tok);
             } else if self.ch.is_ascii_digit() {
                 tok.literal = self.read_number();
                 tok.kind = TokenKind::Int;
-                return tok;
+                return Some(tok);
             }
         }
 
         self.read_char();
-        tok
+        Some(tok)
     }
 }
 
@@ -260,19 +267,19 @@ mod tests {
                 {TokenKind::Neq, "!="},
                 {TokenKind::Int, "9"},
                 {TokenKind::Semicolon, ";"},
-                {TokenKind::Eof, ""},
             }
         );
 
         let mut l = Lexer::new(input);
 
         for test in tests {
-            let tok = l.next_token();
+            let tok = l.next().unwrap();
 
             eprintln!("{} == {}", tok.kind, test.expected_kind);
             assert_eq!(tok.kind, test.expected_kind);
             eprintln!("'{}' == '{}'", tok.literal, test.expected_literal);
             assert_eq!(tok.literal, test.expected_literal);
         }
+        assert!(l.next().is_none());
     }
 }
