@@ -80,8 +80,23 @@ impl Display for TokenKind {
     }
 }
 
-#[derive(Debug, PartialEq)]
+impl Default for TokenKind {
+    fn default() -> Self {
+        Self::Illegal
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub literal: String,
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Self {
+            kind: TokenKind::default(),
+            literal: String::default(),
+        }
+    }
 }

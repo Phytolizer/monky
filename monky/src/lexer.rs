@@ -159,6 +159,17 @@ impl<'s> Iterator for Lexer<'s> {
     }
 }
 
+impl<'s> Default for Lexer<'s> {
+    fn default() -> Self {
+        Self {
+            input: "".char_indices().peekable(),
+            ch: '\0',
+            len: 0,
+            position: 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use monky_test_macros::test_struct;
