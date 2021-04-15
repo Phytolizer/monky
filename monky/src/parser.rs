@@ -87,6 +87,7 @@ impl<'s> Parser<'s> {
     fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
         let mut stmt = ReturnStatement {
             token: self.cur_token.as_ref().unwrap().clone(),
+            ..Default::default()
         };
 
         self.next_token();
