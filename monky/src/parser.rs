@@ -3,6 +3,7 @@ use std::mem::swap;
 use crate::ast::Identifier;
 use crate::ast::LetStatement;
 use crate::ast::Program;
+use crate::ast::ReturnStatement;
 use crate::ast::Statement;
 use crate::lexer::Lexer;
 use crate::token::Token;
@@ -52,6 +53,7 @@ impl<'s> Parser<'s> {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.as_ref().unwrap().kind {
             TokenKind::Let => self.parse_let_statement().map(Statement::Let),
+            TokenKind::Return => self.parse_return_statement().map(Statement::Return),
             _ => None,
         }
     }
@@ -74,6 +76,20 @@ impl<'s> Parser<'s> {
         if !self.expect_peek(TokenKind::Assign) {
             return None;
         }
+
+        while !self.cur_token_is(TokenKind::Semicolon) {
+            self.next_token();
+        }
+
+        Some(stmt)
+    }
+
+    fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
+        let mut stmt = ReturnStatement {
+            token: self.cur_token.as_ref().unwrap().clone(),
+        };
+
+        self.next_token();
 
         while !self.cur_token_is(TokenKind::Semicolon) {
             self.next_token();
@@ -181,8 +197,31 @@ mod tests {
         assert_eq!(stmt.token_literal(), "let");
         let let_stmt = match stmt {
             Statement::Let(l) => l,
+            _ => panic!("expected let statement, got: {:#?}", stmt),
         };
         assert_eq!(let_stmt.name.value, expected_identifier);
         assert_eq!(let_stmt.name.token_literal(), expected_identifier);
+    }
+
+    #[test]
+    fn return_statements() {
+        let input = "
+        return 5;
+        return 10;
+        return 943290;
+        ";
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 3);
+        for stmt in program.statements {
+            let return_stmt = match stmt {
+                Statement::Return(r) => r,
+                _ => panic!("expected return statement, got: {:#?}", stmt),
+            };
+
+            assert_eq!(return_stmt.token_literal(), "return");
+        }
     }
 }

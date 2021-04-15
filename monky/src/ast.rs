@@ -4,6 +4,7 @@ pub trait TokenLiteral {
     fn token_literal(&self) -> String;
 }
 
+#[derive(Debug)]
 pub enum Node {
     Expression(Expression),
     Statement(Statement),
@@ -20,6 +21,7 @@ impl TokenLiteral for Node {
     }
 }
 
+#[derive(Debug)]
 pub enum Expression {}
 
 impl TokenLiteral for Expression {
@@ -30,18 +32,22 @@ impl TokenLiteral for Expression {
     }
 }
 
+#[derive(Debug)]
 pub enum Statement {
     Let(LetStatement),
+    Return(ReturnStatement),
 }
 
 impl TokenLiteral for Statement {
     fn token_literal(&self) -> String {
         match self {
             Self::Let(s) => s.token_literal(),
+            Self::Return(s) => s.token_literal(),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Program {
     pub statements: Vec<Statement>,
 }
@@ -55,7 +61,7 @@ impl TokenLiteral for Program {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
@@ -68,7 +74,19 @@ impl TokenLiteral for LetStatement {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
+pub struct ReturnStatement {
+    pub token: Token,
+    // pub value: Expression,
+}
+
+impl TokenLiteral for ReturnStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
