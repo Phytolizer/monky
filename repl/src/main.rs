@@ -2,7 +2,8 @@ use dialoguer::console::style;
 use dialoguer::console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Input;
-use monky::lexer::Lexer;
+use logos::Logos;
+use monky::syntax::SyntaxKind;
 
 fn main() {
     log4rs::init_file("monky-log.yml", Default::default()).unwrap();
@@ -24,7 +25,7 @@ fn main() {
             break;
         }
 
-        let lexer = Lexer::new(text.as_str());
+        let lexer = SyntaxKind::lexer(text.as_str());
 
         for tok in lexer {
             println!("{:?}", tok);

@@ -1,228 +1,156 @@
-use std::mem::swap;
+use std::iter::Peekable;
 
-use crate::ast::Identifier;
-use crate::ast::LetStatement;
-use crate::ast::Program;
-use crate::ast::ReturnStatement;
-use crate::ast::Statement;
-use crate::lexer::Lexer;
-use crate::token::Token;
-use crate::token::TokenKind;
+use logos::Logos;
+use rowan::Checkpoint;
+use rowan::GreenNode;
+use rowan::GreenNodeBuilder;
+use rowan::Language;
+
+use crate::syntax::Lexer;
+use crate::syntax::MonkeyLanguage;
+use crate::syntax::SyntaxKind;
+use crate::syntax::SyntaxNode;
 
 pub struct Parser<'s> {
-    lexer: Lexer<'s>,
-
-    cur_token: Option<Token>,
-    peek_token: Option<Token>,
-
-    errors: Vec<String>,
+    lexer: Peekable<Lexer<'s>>,
+    builder: GreenNodeBuilder<'static>,
 }
+
 impl<'s> Parser<'s> {
     pub fn new(source: &'s str) -> Self {
-        let mut p = Parser {
-            lexer: Lexer::new(source),
-            ..Default::default()
-        };
-
-        p.next_token();
-        p.next_token();
-
-        p
+        Self {
+            lexer: Lexer::new(source).peekable(),
+            builder: GreenNodeBuilder::new(),
+        }
     }
 
-    fn next_token(&mut self) {
-        swap(&mut self.cur_token, &mut self.peek_token);
-        self.peek_token = self.lexer.next();
+    pub fn parse(mut self) -> Parse {
+        self.start_node(SyntaxKind::Program);
+
+        while self.peek().is_some() {
+            self.statement();
+        }
+
+        self.finish_node();
+
+        Parse {
+            green_node: self.builder.finish(),
+        }
     }
 
-    pub fn parse_program(&mut self) -> Program {
-        let mut program = Program { statements: vec![] };
-        while self.cur_token.is_some() {
-            if let Some(stmt) = self.parse_statement() {
-                program.statements.push(stmt);
+    fn statement(&mut self) {
+        match self.peek() {
+            Some(SyntaxKind::Let) => self.let_statement(),
+            _ => todo!(),
+        }
+    }
+
+    fn let_statement(&mut self) {
+        self.start_node(SyntaxKind::LetStatement);
+        self.bump();
+        match self.peek() {
+            Some(SyntaxKind::Ident) => self.bump(),
+            _ => todo!(),
+        }
+        match self.peek() {
+            Some(SyntaxKind::Assign) => self.bump(),
+            _ => todo!(),
+        }
+
+        loop {
+            match self.peek() {
+                Some(SyntaxKind::Semicolon) => break,
+                Some(_) => {}
+                None => todo!(),
             }
-            self.next_token();
-        }
-        program
-    }
-
-    pub fn errors(&self) -> &[String] {
-        &self.errors
-    }
-
-    fn parse_statement(&mut self) -> Option<Statement> {
-        match self.cur_token.as_ref().unwrap().kind {
-            TokenKind::Let => self.parse_let_statement().map(Statement::Let),
-            TokenKind::Return => self.parse_return_statement().map(Statement::Return),
-            _ => None,
-        }
-    }
-
-    fn parse_let_statement(&mut self) -> Option<LetStatement> {
-        let mut stmt = LetStatement {
-            token: self.cur_token.as_ref().unwrap().clone(),
-            ..Default::default()
-        };
-
-        if !self.expect_peek(TokenKind::Ident) {
-            return None;
+            self.bump();
         }
 
-        stmt.name = Identifier {
-            token: self.cur_token.as_ref().unwrap().clone(),
-            value: self.cur_token.as_ref().unwrap().literal.clone(),
-        };
+        self.bump();
 
-        if !self.expect_peek(TokenKind::Assign) {
-            return None;
-        }
-
-        while !self.cur_token_is(TokenKind::Semicolon) {
-            self.next_token();
-        }
-
-        Some(stmt)
+        self.finish_node();
     }
 
-    fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
-        let mut stmt = ReturnStatement {
-            token: self.cur_token.as_ref().unwrap().clone(),
-            ..Default::default()
-        };
-
-        self.next_token();
-
-        while !self.cur_token_is(TokenKind::Semicolon) {
-            self.next_token();
-        }
-
-        Some(stmt)
+    fn start_node(&mut self, kind: SyntaxKind) {
+        self.builder.start_node(MonkeyLanguage::kind_to_raw(kind));
     }
 
-    fn cur_token_is(&self, kind: TokenKind) -> bool {
-        self.cur_token
-            .as_ref()
-            .map(|t| t.kind == kind)
-            .unwrap_or(false)
+    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
+        self.builder
+            .start_node_at(checkpoint, MonkeyLanguage::kind_to_raw(kind));
     }
 
-    fn peek_token_is(&self, kind: TokenKind) -> bool {
-        self.peek_token
-            .as_ref()
-            .map(|t| t.kind == kind)
-            .unwrap_or(false)
+    fn finish_node(&mut self) {
+        self.builder.finish_node();
     }
 
-    fn expect_peek(&mut self, kind: TokenKind) -> bool {
-        if self.peek_token_is(kind) {
-            self.next_token();
-            true
-        } else {
-            self.peek_error(kind);
-            false
-        }
+    fn checkpoint(&mut self) -> Checkpoint {
+        self.builder.checkpoint()
     }
 
-    fn peek_error(&mut self, kind: TokenKind) {
-        self.errors.push(format!(
-            "expected next token to be {:?}, got {:?} instead",
-            kind,
-            self.peek_token.as_ref().unwrap().kind
-        ));
+    fn peek(&mut self) -> Option<SyntaxKind> {
+        self.lexer.peek().map(|(k, _)| *k)
+    }
+
+    fn bump(&mut self) {
+        let (kind, text) = self.lexer.next().unwrap();
+        self.builder
+            .token(MonkeyLanguage::kind_to_raw(kind), text.into());
     }
 }
 
-impl<'s> Default for Parser<'s> {
-    fn default() -> Self {
-        Self {
-            lexer: Lexer::default(),
-            cur_token: None,
-            peek_token: None,
-            errors: vec![],
-        }
+pub struct Parse {
+    green_node: GreenNode,
+}
+
+impl Parse {
+    pub fn debug_tree(&self) -> String {
+        let syntax_node = SyntaxNode::new_root(self.green_node.clone());
+        let formatted = format!("{:#?}", syntax_node);
+        formatted.trim().to_string()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use monky_test_macros::test_struct;
-
-    use crate::ast::Statement;
-    use crate::ast::TokenLiteral;
+    use crate::syntax::SyntaxNode;
 
     use super::*;
+    use expect_test::expect;
+    use expect_test::Expect;
+
+    fn check(input: &str, expected_tree: Expect) {
+        let parse = Parser::new(input).parse();
+        expected_tree.assert_eq(&parse.debug_tree());
+    }
 
     #[test]
     fn let_statements() {
-        let input = "
+        check(
+            "
         let x = 5;
         let y = 10;
-        let foobar = 3358093;
-        ";
-
-        let mut p = Parser::new(input);
-        let program = p.parse_program();
-        check_parser_errors(&p);
-        assert_eq!(program.statements.len(), 3);
-
-        test_struct!(
-            struct {
-                expected_identifier: &'static str,
-            }{
-                {"x"},
-                {"y"},
-                {"foobar"},
-            }
-        );
-
-        for (i, test) in tests.iter().enumerate() {
-            let stmt = &program.statements[i];
-            test_let_statement(stmt, test.expected_identifier);
-        }
-    }
-
-    fn check_parser_errors(p: &Parser) {
-        let errors = p.errors();
-        if errors.is_empty() {
-            return;
-        }
-
-        eprintln!("parser has {} errors", errors.len());
-        for msg in errors {
-            eprintln!("parser error: {}", msg);
-        }
-        panic!();
-    }
-
-    fn test_let_statement(stmt: &Statement, expected_identifier: &str) {
-        assert_eq!(stmt.token_literal(), "let");
-        let let_stmt = match stmt {
-            Statement::Let(l) => l,
-            _ => panic!("expected let statement, got: {:#?}", stmt),
-        };
-        assert_eq!(let_stmt.name.value, expected_identifier);
-        assert_eq!(let_stmt.name.token_literal(), expected_identifier);
-    }
-
-    #[test]
-    fn return_statements() {
-        let input = "
-        return 5;
-        return 10;
-        return 943290;
-        ";
-        let mut p = Parser::new(input);
-        let program = p.parse_program();
-        check_parser_errors(&p);
-
-        assert_eq!(program.statements.len(), 3);
-        for stmt in program.statements {
-            let return_stmt = match stmt {
-                Statement::Return(r) => r,
-                _ => panic!("expected return statement, got: {:#?}", stmt),
-            };
-
-            assert_eq!(return_stmt.token_literal(), "return");
-        }
+        let foobar = 838383;
+        ",
+            expect![[r#"Program@0..32
+  LetStatement@0..7
+    Let@0..3 "let"
+    Ident@3..4 "x"
+    Assign@4..5 "="
+    Num@5..6 "5"
+    Semicolon@6..7 ";"
+  LetStatement@7..15
+    Let@7..10 "let"
+    Ident@10..11 "y"
+    Assign@11..12 "="
+    Num@12..14 "10"
+    Semicolon@14..15 ";"
+  LetStatement@15..32
+    Let@15..18 "let"
+    Ident@18..24 "foobar"
+    Assign@24..25 "="
+    Num@25..31 "838383"
+    Semicolon@31..32 ";""#]],
+        )
     }
 }

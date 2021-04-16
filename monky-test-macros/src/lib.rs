@@ -7,6 +7,7 @@ use syn::parse::ParseStream;
 use syn::parse_macro_input;
 use syn::punctuated::Punctuated;
 use syn::token::Brace;
+use syn::AngleBracketedGenericArguments;
 use syn::Expr;
 use syn::Ident;
 use syn::LitChar;
@@ -37,6 +38,7 @@ struct TestStructComponent {
     name: Ident,
     _colon_tok: Token![:],
     ty: Type,
+    generics: Option<AngleBracketedGenericArguments>,
 }
 
 impl Parse for TestStructComponent {
@@ -44,11 +46,13 @@ impl Parse for TestStructComponent {
         let name = input.parse()?;
         let _colon_tok = input.parse()?;
         let ty = input.parse()?;
+        let generics = input.parse().ok();
 
         Ok(Self {
             name,
             _colon_tok,
             ty,
+            generics,
         })
     }
 }
@@ -57,7 +61,8 @@ impl ToTokens for TestStructComponent {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name = &self.name;
         let ty = &self.ty;
-        tokens.extend(quote! { #name: #ty });
+        let generics = &self.generics;
+        tokens.extend(quote! { #name: #ty#generics });
     }
 }
 
@@ -89,6 +94,7 @@ impl ToTokens for Test {
 
 struct TestStructInput {
     _struct_kw: Token![struct],
+    generics: Option<AngleBracketedGenericArguments>,
     _brace_tok: Brace,
     struct_components: Punctuated<TestStructComponent, Token![,]>,
     _brace_tok2: Brace,
@@ -101,6 +107,7 @@ impl Parse for TestStructInput {
         let tests;
 
         let _struct_kw = input.parse()?;
+        let generics = input.parse().ok();
         let _brace_tok = braced!(struct_contents in input);
         let struct_components = struct_contents.parse_terminated(TestStructComponent::parse)?;
         let _brace_tok2 = braced!(tests in input);
@@ -108,6 +115,7 @@ impl Parse for TestStructInput {
 
         Ok(TestStructInput {
             _struct_kw,
+            generics,
             _brace_tok,
             struct_components,
             _brace_tok2,
@@ -120,11 +128,12 @@ impl Parse for TestStructInput {
 pub fn test_struct(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as TestStructInput);
 
+    let generics = input.generics;
     let test_struct_components = input.struct_components.into_iter().collect::<Vec<_>>();
 
     let test_struct = quote! {
         #[derive(Debug, PartialEq)]
-        struct Test {
+        struct Test#generics {
             #(#test_struct_components),*
         }
     };

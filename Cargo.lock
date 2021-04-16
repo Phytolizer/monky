@@ -28,6 +28,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "beef"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6736e2428df2ca2848d846c43e88745121a6654696e349ce0054a420815a7409"
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -68,6 +74,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "countme"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "328b822bdcba4d4e402be8d9adb6eebf269f969f8eadef977a553ff3c4fbcb58"
+
+[[package]]
 name = "derivative"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -91,6 +103,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dissimilar"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc4b29f4b9bb94bf267d57269fd0706d343a160937108e9619fe380645428abb"
+
+[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -103,10 +121,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "eldiro"
+version = "0.1.0"
+dependencies = [
+ "logos",
+ "monky-test-macros",
+ "num-derive",
+ "num-traits",
+ "rowan",
+]
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
+
+[[package]]
+name = "expect-test"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2300477aab3a378f2ca00a4fbd4dc713654ab7ed790e4017493cb33656280633"
+dependencies = [
+ "dissimilar",
+ "once_cell",
+]
 
 [[package]]
 name = "fnv"
@@ -124,6 +163,12 @@ dependencies = [
  "libc",
  "wasi",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
 
 [[package]]
 name = "humantime"
@@ -244,6 +289,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "logos"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "427e2abca5be13136da9afdbf874e6b34ad9001dd70f2b103b083a85daa7b345"
+dependencies = [
+ "logos-derive",
+]
+
+[[package]]
+name = "logos-derive"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56a7d287fd2ac3f75b11f19a1c8a874a7d55744bd91f7a1b3e7cf87d4343c36d"
+dependencies = [
+ "beef",
+ "fnv",
+ "proc-macro2",
+ "quote",
+ "regex-syntax",
+ "syn",
+ "utf8-ranges",
+]
+
+[[package]]
 name = "maplit"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -256,13 +325,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ee1c47aaa256ecabcaea351eae4a9b01ef39ed810004e298d2511ed284b1525"
 
 [[package]]
+name = "memoffset"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f83fb6581e8ed1f85fd45c116db8405483899489e38406156c25eb743554361d"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "monky"
 version = "0.1.0"
 dependencies = [
+ "expect-test",
  "itertools",
+ "logos",
  "maplit",
  "monky-test-macros",
+ "num-derive",
+ "num-traits",
  "once_cell",
+ "rowan",
 ]
 
 [[package]]
@@ -270,6 +353,17 @@ name = "monky-test-macros"
 version = "0.1.0"
 dependencies = [
  "inflections",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "num-derive"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "876a53fff98e03a936a674b29568b0e605f06b29372c2489ff4de23f1949743d"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn",
@@ -453,8 +547,28 @@ dependencies = [
  "indicatif",
  "log",
  "log4rs",
+ "logos",
  "monky",
 ]
+
+[[package]]
+name = "rowan"
+version = "0.12.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1b36e449f3702f3b0c821411db1cbdf30fb451726a9456dce5dabcd44420043"
+dependencies = [
+ "countme",
+ "hashbrown",
+ "memoffset",
+ "rustc-hash",
+ "text-size",
+]
+
+[[package]]
+name = "rustc-hash"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "ryu"
@@ -563,6 +677,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "text-size"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "288cb548dbe72b652243ea797201f3d481a0609a967980fcc5b2315ea811560a"
+
+[[package]]
 name = "thiserror"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -638,6 +758,12 @@ checksum = "f30360d7979f5e9c6e6cea48af192ea8fab4afb3cf72597154b8f08935bc9c7f"
 dependencies = [
  "traitobject",
 ]
+
+[[package]]
+name = "utf8-ranges"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ae116fef2b7fea257ed6440d3cfcff7f190865f170cdad00bb6465bf18ecba"
 
 [[package]]
 name = "wasi"
