@@ -1,27 +1,33 @@
-use logos::Logos;
+use std::iter::Peekable;
+
 use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 use rowan::Language;
 
+use crate::lexer::Lexer;
 use crate::lexer::SyntaxKind;
 use crate::syntax::EldiroLanguage;
 use crate::syntax::SyntaxNode;
 
 pub struct Parser<'s> {
-    lexer: logos::Lexer<'s, SyntaxKind>,
+    lexer: Peekable<Lexer<'s>>,
     builder: GreenNodeBuilder<'static>,
 }
 
 impl<'s> Parser<'s> {
     pub fn new(input: &'s str) -> Self {
         Self {
-            lexer: SyntaxKind::lexer(input),
+            lexer: Lexer::new(input).peekable(),
             builder: GreenNodeBuilder::new(),
         }
     }
 
     pub fn parse(mut self) -> Parse {
         self.start_node(SyntaxKind::Root);
+        match self.peek() {
+            Some(SyntaxKind::Num) | Some(SyntaxKind::Ident) => self.bump(),
+            _ => {}
+        }
         self.finish_node();
 
         Parse {
@@ -35,6 +41,15 @@ impl<'s> Parser<'s> {
 
     fn finish_node(&mut self) {
         self.builder.finish_node();
+    }
+
+    fn peek(&mut self) -> Option<SyntaxKind> {
+        self.lexer.peek().map(|(k, _)| *k)
+    }
+
+    fn bump(&mut self) {
+        let (kind, text) = self.lexer.next().unwrap();
+        self.builder.token(EldiroLanguage::kind_to_raw(kind), text)
     }
 }
 
@@ -66,5 +81,25 @@ mod tests {
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]])
+    }
+
+    #[test]
+    fn parse_number() {
+        check(
+            "123",
+            expect![[r#"
+Root@0..3
+  Num@0..3 "123""#]],
+        )
+    }
+
+    #[test]
+    fn parse_binding_usage() {
+        check(
+            "counter",
+            expect![[r#"
+Root@0..7
+  Ident@0..7 "counter""#]],
+        )
     }
 }

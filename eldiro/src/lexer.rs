@@ -38,14 +38,36 @@ pub(crate) enum SyntaxKind {
     Root,
 }
 
+pub(crate) struct Lexer<'s> {
+    inner: logos::Lexer<'s, SyntaxKind>,
+}
+
+impl<'s> Lexer<'s> {
+    pub(crate) fn new(input: &'s str) -> Self {
+        Self {
+            inner: SyntaxKind::lexer(input),
+        }
+    }
+}
+
+impl<'s> Iterator for Lexer<'s> {
+    type Item = (SyntaxKind, &'s str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let kind = self.inner.next()?;
+        let text = self.inner.slice();
+
+        Some((kind, text))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn check_single(input: &str, expected_kind: SyntaxKind) {
-        let mut lexer = SyntaxKind::lexer(input);
-        assert_eq!(lexer.next(), Some(expected_kind));
-        assert_eq!(lexer.slice(), input);
+        let mut lexer = Lexer::new(input);
+        assert_eq!(lexer.next(), Some((expected_kind, input)));
     }
 
     #[test]
