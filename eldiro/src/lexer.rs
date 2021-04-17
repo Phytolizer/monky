@@ -1,7 +1,9 @@
 use logos::Logos;
+use num_derive::FromPrimitive;
+use num_derive::ToPrimitive;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Logos)]
-enum SyntaxKind {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Logos, FromPrimitive, ToPrimitive)]
+pub(crate) enum SyntaxKind {
     #[regex(" +")]
     Whitespace,
     #[error]
@@ -31,6 +33,9 @@ enum SyntaxKind {
     BraceL,
     #[token("}")]
     BraceR,
+
+    // AST nodes.
+    Root,
 }
 
 #[cfg(test)]
