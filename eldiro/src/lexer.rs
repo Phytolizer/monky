@@ -33,10 +33,15 @@ pub(crate) enum SyntaxKind {
     BraceL,
     #[token("}")]
     BraceR,
+    #[token("(")]
+    ParenL,
+    #[token(")")]
+    ParenR,
 
     // AST nodes.
     Root,
-    BinOp,
+    BinaryExpr,
+    PrefixExpr,
 }
 
 pub(crate) struct Lexer<'s> {
@@ -84,6 +89,11 @@ mod tests {
     #[test]
     fn lex_let_keyword() {
         check_single("let", SyntaxKind::KwLet);
+    }
+
+    #[test]
+    fn lex_single_char_identifier() {
+        check_single("x", SyntaxKind::Ident);
     }
 
     #[test]
@@ -139,5 +149,15 @@ mod tests {
     #[test]
     fn lex_right_brace() {
         check_single("}", SyntaxKind::BraceR);
+    }
+
+    #[test]
+    fn lex_left_parenthesis() {
+        check_single("(", SyntaxKind::ParenL);
+    }
+
+    #[test]
+    fn lex_right_parenthesis() {
+        check_single(")", SyntaxKind::ParenR);
     }
 }
