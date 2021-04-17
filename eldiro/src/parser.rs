@@ -12,20 +12,24 @@ use crate::lexer::SyntaxKind;
 use crate::syntax::EldiroLanguage;
 use crate::syntax::SyntaxNode;
 
+mod event;
 mod expr;
+mod sink;
 
+use event::Event;
 use expr::expr;
+use sink::Sink;
 
 pub struct Parser<'s> {
     lexer: Peekable<Lexer<'s>>,
-    builder: GreenNodeBuilder<'static>,
+    events: Vec<Event>,
 }
 
 impl<'s> Parser<'s> {
     pub fn new(input: &'s str) -> Self {
         Self {
             lexer: Lexer::new(input).peekable(),
-            builder: GreenNodeBuilder::new(),
+            events: vec![],
         }
     }
 
@@ -36,17 +40,19 @@ impl<'s> Parser<'s> {
 
         self.finish_node();
 
+        let sink = Sink::new(self.events);
+
         Parse {
-            green_node: self.builder.finish(),
+            green_node: sink.finish(),
         }
     }
 
     fn start_node(&mut self, kind: SyntaxKind) {
-        self.builder.start_node(EldiroLanguage::kind_to_raw(kind));
+        self.events.push(Event::StartNode { kind });
     }
 
     fn finish_node(&mut self) {
-        self.builder.finish_node();
+        self.events.push(Event::FinishNode);
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {
@@ -55,16 +61,18 @@ impl<'s> Parser<'s> {
 
     fn bump(&mut self) {
         let (kind, text) = self.lexer.next().unwrap();
-        self.builder.token(EldiroLanguage::kind_to_raw(kind), text)
+        self.events.push(Event::AddToken {
+            kind,
+            text: text.into(),
+        });
     }
 
-    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
-        self.builder
-            .start_node_at(checkpoint, EldiroLanguage::kind_to_raw(kind));
+    fn start_node_at(&mut self, checkpoint: usize, kind: SyntaxKind) {
+        self.events.push(Event::StartNodeAt { kind, checkpoint });
     }
 
-    fn checkpoint(&self) -> Checkpoint {
-        self.builder.checkpoint()
+    fn checkpoint(&self) -> usize {
+        self.events.len()
     }
 }
 
