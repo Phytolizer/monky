@@ -36,6 +36,7 @@ pub(crate) enum SyntaxKind {
 
     // AST nodes.
     Root,
+    BinOp,
 }
 
 pub(crate) struct Lexer<'s> {

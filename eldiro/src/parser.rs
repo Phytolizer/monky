@@ -1,5 +1,8 @@
 use std::iter::Peekable;
 
+#[cfg(test)]
+use expect_test::Expect;
+use rowan::Checkpoint;
 use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 use rowan::Language;
@@ -8,6 +11,10 @@ use crate::lexer::Lexer;
 use crate::lexer::SyntaxKind;
 use crate::syntax::EldiroLanguage;
 use crate::syntax::SyntaxNode;
+
+mod expr;
+
+use expr::expr;
 
 pub struct Parser<'s> {
     lexer: Peekable<Lexer<'s>>,
@@ -24,10 +31,9 @@ impl<'s> Parser<'s> {
 
     pub fn parse(mut self) -> Parse {
         self.start_node(SyntaxKind::Root);
-        match self.peek() {
-            Some(SyntaxKind::Num) | Some(SyntaxKind::Ident) => self.bump(),
-            _ => {}
-        }
+
+        expr(&mut self);
+
         self.finish_node();
 
         Parse {
@@ -51,6 +57,15 @@ impl<'s> Parser<'s> {
         let (kind, text) = self.lexer.next().unwrap();
         self.builder.token(EldiroLanguage::kind_to_raw(kind), text)
     }
+
+    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
+        self.builder
+            .start_node_at(checkpoint, EldiroLanguage::kind_to_raw(kind));
+    }
+
+    fn checkpoint(&self) -> Checkpoint {
+        self.builder.checkpoint()
+    }
 }
 
 pub struct Parse {
@@ -67,39 +82,19 @@ impl Parse {
 }
 
 #[cfg(test)]
+fn check(input: &str, expected_tree: Expect) {
+    let parse = Parser::new(input).parse();
+    expected_tree.assert_eq(&parse.debug_tree());
+}
+
+#[cfg(test)]
 mod tests {
     use expect_test::expect;
-    use expect_test::Expect;
 
     use super::*;
-
-    fn check(input: &str, expected_tree: Expect) {
-        let parse = Parser::new(input).parse();
-        expected_tree.assert_eq(&parse.debug_tree());
-    }
 
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]])
-    }
-
-    #[test]
-    fn parse_number() {
-        check(
-            "123",
-            expect![[r#"
-Root@0..3
-  Num@0..3 "123""#]],
-        )
-    }
-
-    #[test]
-    fn parse_binding_usage() {
-        check(
-            "counter",
-            expect![[r#"
-Root@0..7
-  Ident@0..7 "counter""#]],
-        )
     }
 }
