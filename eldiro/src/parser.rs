@@ -120,4 +120,14 @@ Root@0..3
   Whitespace@0..3 "   ""#]],
         )
     }
+
+    #[test]
+    fn parse_comment() {
+        check(
+            "# test set",
+            expect![[r##"
+Root@0..10
+  Comment@0..10 "# test set""##]],
+        )
+    }
 }

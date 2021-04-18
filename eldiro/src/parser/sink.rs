@@ -45,7 +45,7 @@ impl<'s, 'l> Sink<'s, 'l> {
                 Event::StartNodeAt { .. } => unreachable!(),
             }
 
-            self.eat_whitespace();
+            self.eat_trivia();
         }
         self.builder.finish()
     }
@@ -56,9 +56,9 @@ impl<'s, 'l> Sink<'s, 'l> {
         self.cursor += 1;
     }
 
-    fn eat_whitespace(&mut self) {
+    fn eat_trivia(&mut self) {
         while let Some(lexeme) = self.lexemes.get(self.cursor) {
-            if lexeme.kind != SyntaxKind::Whitespace {
+            if !lexeme.kind.is_trivia() {
                 break;
             }
 

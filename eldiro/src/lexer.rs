@@ -4,7 +4,9 @@ use num_derive::ToPrimitive;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Logos, FromPrimitive, ToPrimitive)]
 pub(crate) enum SyntaxKind {
-    #[regex(" +")]
+    #[regex("#.*")]
+    Comment,
+    #[regex("[ \n]+")]
     Whitespace,
     #[error]
     Error,
@@ -42,6 +44,12 @@ pub(crate) enum SyntaxKind {
     Root,
     BinaryExpr,
     PrefixExpr,
+}
+
+impl SyntaxKind {
+    pub(crate) fn is_trivia(self) -> bool {
+        matches!(self, Self::Whitespace | Self::Comment)
+    }
 }
 
 pub(crate) struct Lexer<'s> {
@@ -85,6 +93,16 @@ mod tests {
     #[test]
     fn lex_spaces() {
         check_single("  ", SyntaxKind::Whitespace);
+    }
+
+    #[test]
+    fn lex_comment() {
+        check_single("# test", SyntaxKind::Comment);
+    }
+
+    #[test]
+    fn lex_spaces_and_newlines() {
+        check_single("  \n ", SyntaxKind::Whitespace);
     }
 
     #[test]
