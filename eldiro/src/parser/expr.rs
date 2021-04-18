@@ -1,15 +1,16 @@
 use crate::lexer::SyntaxKind;
 
+use super::marker::CompletedMarker;
 use super::Parser;
 
-enum InfixOp {
+enum BinaryOp {
     Add,
     Sub,
     Mul,
     Div,
 }
 
-impl InfixOp {
+impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Add | Self::Sub => (1, 2),
@@ -18,11 +19,11 @@ impl InfixOp {
     }
 }
 
-enum PrefixOp {
+enum UnaryOp {
     Neg,
 }
 
-impl PrefixOp {
+impl UnaryOp {
     fn binding_power(&self) -> ((), u8) {
         match self {
             Self::Neg => ((), 5),
@@ -34,50 +35,70 @@ pub(super) fn expr(p: &mut Parser) {
     expr_binding_power(p, 0);
 }
 
+fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
+    let cm = match parser.peek() {
+        Some(SyntaxKind::Num) => literal(parser),
+        Some(SyntaxKind::Ident) => variable_ref(parser),
+        Some(SyntaxKind::Minus) => prefix_expr(parser),
+        Some(SyntaxKind::ParenL) => paren_expr(parser),
+        _ => return None, // TODO handle error
+    };
+    Some(cm)
+}
+
+fn paren_expr(parser: &mut Parser) -> CompletedMarker {
+    debug_assert!(parser.at(SyntaxKind::ParenL));
+
+    let m = parser.start();
+    parser.bump();
+    expr_binding_power(parser, 0);
+    debug_assert_eq!(parser.peek(), Some(SyntaxKind::ParenR));
+
+    debug_assert!(parser.at(SyntaxKind::ParenR));
+    parser.bump();
+    m.complete(parser, SyntaxKind::ParenExpr)
+}
+
+fn prefix_expr(parser: &mut Parser) -> CompletedMarker {
+    assert!(parser.at(SyntaxKind::Minus));
+
+    let m = parser.start();
+    let op = UnaryOp::Neg;
+    let ((), right_binding_power) = op.binding_power();
+    parser.bump();
+    expr_binding_power(parser, right_binding_power);
+    m.complete(parser, SyntaxKind::PrefixExpr)
+}
+
+fn variable_ref(parser: &mut Parser) -> CompletedMarker {
+    debug_assert!(parser.at(SyntaxKind::Ident));
+
+    let m = parser.start();
+    parser.bump();
+    m.complete(parser, SyntaxKind::VariableRef)
+}
+
+fn literal(parser: &mut Parser) -> CompletedMarker {
+    debug_assert!(parser.at(SyntaxKind::Num));
+
+    let m = parser.start();
+    parser.bump();
+    m.complete(parser, SyntaxKind::Literal)
+}
+
 pub(super) fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
-    let mut lhs = match parser.peek() {
-        Some(SyntaxKind::Num) => {
-            let m = parser.start();
-            parser.bump();
-            m.complete(parser, SyntaxKind::Literal)
-        }
-        Some(SyntaxKind::Ident) => {
-            let m = parser.start();
-            parser.bump();
-            m.complete(parser, SyntaxKind::VariableRef)
-        }
-        Some(SyntaxKind::Minus) => {
-            let m = parser.start();
-
-            let op = PrefixOp::Neg;
-            let ((), right_binding_power) = op.binding_power();
-
-            parser.bump();
-
-            expr_binding_power(parser, right_binding_power);
-
-            m.complete(parser, SyntaxKind::PrefixExpr)
-        }
-        Some(SyntaxKind::ParenL) => {
-            let m = parser.start();
-
-            parser.bump();
-            expr_binding_power(parser, 0);
-
-            assert_eq!(parser.peek(), Some(SyntaxKind::ParenR));
-            parser.bump();
-
-            m.complete(parser, SyntaxKind::ParenExpr)
-        }
-        _ => return, // TODO handle error
+    let mut lhs = if let Some(lhs) = lhs(parser) {
+        lhs
+    } else {
+        return; // TODO handle error
     };
 
     loop {
         let op = match parser.peek() {
-            Some(SyntaxKind::Plus) => InfixOp::Add,
-            Some(SyntaxKind::Minus) => InfixOp::Sub,
-            Some(SyntaxKind::Star) => InfixOp::Mul,
-            Some(SyntaxKind::Slash) => InfixOp::Div,
+            Some(SyntaxKind::Plus) => BinaryOp::Add,
+            Some(SyntaxKind::Minus) => BinaryOp::Sub,
+            Some(SyntaxKind::Star) => BinaryOp::Mul,
+            Some(SyntaxKind::Slash) => BinaryOp::Div,
             _ => return,
         };
 
@@ -89,7 +110,7 @@ pub(super) fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8)
 
         let m = lhs.precede(parser);
         expr_binding_power(parser, right_binding_power);
-        lhs = m.complete(parser, SyntaxKind::BinaryExpr);
+        lhs = m.complete(parser, SyntaxKind::InfixExpr);
     }
 }
 
@@ -163,7 +184,7 @@ mod tests {
             "1+2",
             expect![[r#"
                 Root@0..3
-                  BinaryExpr@0..3
+                  InfixExpr@0..3
                     Literal@0..1
                       Num@0..1 "1"
                     Plus@1..2 "+"
@@ -178,9 +199,9 @@ mod tests {
             "1+2+3+4",
             expect![[r#"
                 Root@0..7
-                  BinaryExpr@0..7
-                    BinaryExpr@0..5
-                      BinaryExpr@0..3
+                  InfixExpr@0..7
+                    InfixExpr@0..5
+                      InfixExpr@0..3
                         Literal@0..1
                           Num@0..1 "1"
                         Plus@1..2 "+"
@@ -201,12 +222,12 @@ mod tests {
             "1+2*3-4",
             expect![[r#"
                 Root@0..7
-                  BinaryExpr@0..7
-                    BinaryExpr@0..5
+                  InfixExpr@0..7
+                    InfixExpr@0..5
                       Literal@0..1
                         Num@0..1 "1"
                       Plus@1..2 "+"
-                      BinaryExpr@2..5
+                      InfixExpr@2..5
                         Literal@2..3
                           Num@2..3 "2"
                         Star@3..4 "*"
@@ -237,7 +258,7 @@ mod tests {
             "-20+20",
             expect![[r#"
                 Root@0..6
-                  BinaryExpr@0..6
+                  InfixExpr@0..6
                     PrefixExpr@0..3
                       Minus@0..1 "-"
                       Literal@1..3
@@ -283,13 +304,13 @@ mod tests {
             "5*(2+1)",
             expect![[r#"
                 Root@0..7
-                  BinaryExpr@0..7
+                  InfixExpr@0..7
                     Literal@0..1
                       Num@0..1 "5"
                     Star@1..2 "*"
                     ParenExpr@2..7
                       ParenL@2..3 "("
-                      BinaryExpr@3..6
+                      InfixExpr@3..6
                         Literal@3..4
                           Num@3..4 "2"
                         Plus@4..5 "+"
@@ -306,13 +327,13 @@ mod tests {
             expect![[r#"
                 Root@0..12
                   Whitespace@0..1 " "
-                  BinaryExpr@1..12
+                  InfixExpr@1..12
                     Literal@1..3
                       Num@1..2 "1"
                       Whitespace@2..3 " "
                     Plus@3..4 "+"
                     Whitespace@4..7 "   "
-                    BinaryExpr@7..12
+                    InfixExpr@7..12
                       Literal@7..8
                         Num@7..8 "2"
                       Star@8..9 "*"
@@ -333,8 +354,8 @@ mod tests {
             expect![[r##"
                 Root@0..35
                   Whitespace@0..1 "\n"
-                  BinaryExpr@1..35
-                    BinaryExpr@1..21
+                  InfixExpr@1..35
+                    InfixExpr@1..21
                       Literal@1..5
                         Num@1..2 "1"
                         Whitespace@2..5 "\n  "

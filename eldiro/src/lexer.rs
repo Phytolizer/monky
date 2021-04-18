@@ -42,7 +42,7 @@ pub(crate) enum SyntaxKind {
 
     // AST nodes.
     Root,
-    BinaryExpr,
+    InfixExpr,
     PrefixExpr,
     Literal,
     ParenExpr,
@@ -68,7 +68,7 @@ impl<'s> Lexer<'s> {
 }
 
 impl<'s> Iterator for Lexer<'s> {
-    type Item = Lexeme<'s>;
+    type Item = Token<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let kind = self.inner.next()?;
@@ -79,7 +79,7 @@ impl<'s> Iterator for Lexer<'s> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Lexeme<'s> {
+pub(crate) struct Token<'s> {
     pub(crate) kind: SyntaxKind,
     pub(crate) text: &'s str,
 }
@@ -90,7 +90,7 @@ mod tests {
 
     fn check_single(text: &str, kind: SyntaxKind) {
         let mut lexer = Lexer::new(text);
-        assert_eq!(lexer.next(), Some(Lexeme { kind, text }));
+        assert_eq!(lexer.next(), Some(Token { kind, text }));
     }
 
     #[test]

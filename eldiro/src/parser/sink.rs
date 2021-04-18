@@ -4,24 +4,23 @@ use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 use rowan::Language;
 
-use crate::lexer::Lexeme;
-use crate::lexer::SyntaxKind;
+use crate::lexer::Token;
 use crate::syntax::EldiroLanguage;
 
 use super::event::Event;
 
-pub(super) struct Sink<'s, 'l> {
+pub(super) struct Sink<'s, 't> {
     builder: GreenNodeBuilder<'static>,
-    lexemes: &'l [Lexeme<'s>],
+    tokens: &'t [Token<'s>],
     cursor: usize,
     events: Vec<Event>,
 }
 
-impl<'s, 'l> Sink<'s, 'l> {
-    pub(super) fn new(lexemes: &'l [Lexeme<'s>], events: Vec<Event>) -> Self {
+impl<'s, 't> Sink<'s, 't> {
+    pub(super) fn new(lexemes: &'t [Token<'s>], events: Vec<Event>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
-            lexemes,
+            tokens: lexemes,
             cursor: 0,
             events,
         }
@@ -58,7 +57,7 @@ impl<'s, 'l> Sink<'s, 'l> {
                         self.builder.start_node(EldiroLanguage::kind_to_raw(kind));
                     }
                 }
-                Event::AddToken { kind, text } => self.token(kind, text),
+                Event::AddToken => self.token(),
                 Event::FinishNode => self.builder.finish_node(),
                 Event::Placeholder => {}
             }
@@ -68,19 +67,19 @@ impl<'s, 'l> Sink<'s, 'l> {
         self.builder.finish()
     }
 
-    fn token(&mut self, kind: SyntaxKind, text: String) {
-        self.builder
-            .token(EldiroLanguage::kind_to_raw(kind), text.as_str());
+    fn token(&mut self) {
+        let Token { kind, text } = self.tokens[self.cursor];
+        self.builder.token(EldiroLanguage::kind_to_raw(kind), text);
         self.cursor += 1;
     }
 
     fn eat_trivia(&mut self) {
-        while let Some(lexeme) = self.lexemes.get(self.cursor) {
+        while let Some(lexeme) = self.tokens.get(self.cursor) {
             if !lexeme.kind.is_trivia() {
                 break;
             }
 
-            self.token(lexeme.kind, lexeme.text.into());
+            self.token();
         }
     }
 }

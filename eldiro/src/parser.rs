@@ -2,9 +2,9 @@
 use expect_test::Expect;
 use rowan::GreenNode;
 
-use crate::lexer::Lexeme;
 use crate::lexer::Lexer;
 use crate::lexer::SyntaxKind;
+use crate::lexer::Token;
 use crate::syntax::SyntaxNode;
 
 mod event;
@@ -31,13 +31,13 @@ pub fn parse(input: &str) -> Parse {
     }
 }
 
-struct Parser<'s, 'l> {
-    source: Source<'s, 'l>,
+struct Parser<'s, 't> {
+    source: Source<'s, 't>,
     events: Vec<Event>,
 }
 
-impl<'s, 'l> Parser<'s, 'l> {
-    fn new(lexemes: &'l [Lexeme<'s>]) -> Self {
+impl<'s, 't> Parser<'s, 't> {
+    fn new(lexemes: &'t [Token<'s>]) -> Self {
         Self {
             source: Source::new(lexemes),
             events: vec![],
@@ -64,11 +64,12 @@ impl<'s, 'l> Parser<'s, 'l> {
     }
 
     fn bump(&mut self) {
-        let &Lexeme { kind, text } = self.source.next_lexeme().unwrap();
-        self.events.push(Event::AddToken {
-            kind,
-            text: text.into(),
-        });
+        self.source.next_lexeme().unwrap();
+        self.events.push(Event::AddToken);
+    }
+
+    fn at(&mut self, kind: SyntaxKind) -> bool {
+        self.peek() == Some(kind)
     }
 }
 
