@@ -134,9 +134,9 @@ dependencies = [
  "expect-test",
  "lexer",
  "monky-test-macros",
- "num-derive",
- "num-traits",
+ "parser",
  "rowan",
+ "syntax",
 ]
 
 [[package]]
@@ -144,6 +144,7 @@ name = "eldiro-cli"
 version = "0.1.0"
 dependencies = [
  "eldiro",
+ "parser",
 ]
 
 [[package]]
@@ -457,6 +458,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "drop_bomb",
+ "expect-test",
+ "lexer",
+ "rowan",
+ "syntax",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -672,6 +684,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "syntax"
+version = "0.1.0"
+dependencies = [
+ "lexer",
+ "num-derive",
+ "num-traits",
+ "rowan",
 ]
 
 [[package]]

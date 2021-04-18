@@ -75,17 +75,8 @@ impl<'s> Parser<'s> {
         self.builder.start_node(MonkeyLanguage::kind_to_raw(kind));
     }
 
-    fn start_node_at(&mut self, checkpoint: Checkpoint, kind: SyntaxKind) {
-        self.builder
-            .start_node_at(checkpoint, MonkeyLanguage::kind_to_raw(kind));
-    }
-
     fn finish_node(&mut self) {
         self.builder.finish_node();
-    }
-
-    fn checkpoint(&mut self) -> Checkpoint {
-        self.builder.checkpoint()
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {

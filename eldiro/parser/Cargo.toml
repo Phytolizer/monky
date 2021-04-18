@@ -1,5 +1,5 @@
 [package]
-name = "eldiro"
+name = "parser"
 version = "0.1.0"
 authors = ["onContentStop <kylecoffey1999@gmail.com>"]
 edition = "2018"
@@ -8,9 +8,9 @@ edition = "2018"
 
 [dependencies]
 drop_bomb = "0.1.5"
-expect-test = "1.1.0"
-lexer = { path = "lexer" }
-monky-test-macros = { path = "../monky-test-macros" }
-parser = { path = "parser" }
+lexer = { path = "../lexer" }
 rowan = "0.12.6"
-syntax = { path = "syntax" }
+syntax = { path = "../syntax" }
+
+[dev-dependencies]
+expect-test = "1.1.0"

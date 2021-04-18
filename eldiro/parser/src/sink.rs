@@ -4,9 +4,8 @@ use lexer::Token;
 use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 use rowan::Language;
-
-use crate::syntax::EldiroLanguage;
-use crate::syntax::SyntaxKind;
+use syntax::EldiroLanguage;
+use syntax::SyntaxKind;
 
 use super::event::Event;
 
@@ -18,10 +17,10 @@ pub(super) struct Sink<'s, 't> {
 }
 
 impl<'s, 't> Sink<'s, 't> {
-    pub(super) fn new(lexemes: &'t [Token<'s>], events: Vec<Event>) -> Self {
+    pub(super) fn new(tokens: &'t [Token<'s>], events: Vec<Event>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
-            tokens: lexemes,
+            tokens,
             cursor: 0,
             events,
         }

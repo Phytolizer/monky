@@ -6,4 +6,6 @@ members = [
     'eldiro',
     'eldiro-cli',
     'eldiro/lexer',
+    'eldiro/syntax',
+    'eldiro/parser',
 ]

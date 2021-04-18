@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use num_traits::ToPrimitive;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive, ToPrimitive)]
-pub(crate) enum SyntaxKind {
+pub enum SyntaxKind {
     Whitespace,
     KwFn,
     KwLet,
@@ -31,7 +31,7 @@ pub(crate) enum SyntaxKind {
 }
 
 impl SyntaxKind {
-    pub(crate) fn is_trivia(self) -> bool {
+    pub fn is_trivia(self) -> bool {
         matches!(self, Self::Whitespace | Self::Comment)
     }
 }
@@ -60,7 +60,7 @@ impl From<TokenKind> for SyntaxKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum EldiroLanguage {}
+pub enum EldiroLanguage {}
 
 impl rowan::Language for EldiroLanguage {
     type Kind = SyntaxKind;
@@ -74,4 +74,4 @@ impl rowan::Language for EldiroLanguage {
     }
 }
 
-pub(crate) type SyntaxNode = rowan::SyntaxNode<EldiroLanguage>;
+pub type SyntaxNode = rowan::SyntaxNode<EldiroLanguage>;

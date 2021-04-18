@@ -1,7 +1,7 @@
-use crate::syntax::SyntaxKind;
+use syntax::SyntaxKind;
 
-use super::marker::CompletedMarker;
 use super::Parser;
+use crate::parser::marker::CompletedMarker;
 
 enum BinaryOp {
     Add,
@@ -31,7 +31,7 @@ impl UnaryOp {
     }
 }
 
-pub(super) fn expr(p: &mut Parser) {
+pub(crate) fn expr(p: &mut Parser) {
     expr_binding_power(p, 0);
 }
 
@@ -86,7 +86,7 @@ fn literal(parser: &mut Parser) -> CompletedMarker {
     m.complete(parser, SyntaxKind::Literal)
 }
 
-pub(super) fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
+pub(crate) fn expr_binding_power(parser: &mut Parser, minimum_binding_power: u8) {
     let mut lhs = if let Some(lhs) = lhs(parser) {
         lhs
     } else {

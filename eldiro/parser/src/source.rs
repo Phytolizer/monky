@@ -1,6 +1,5 @@
-use crate::syntax::SyntaxKind;
-
 use lexer::Token;
+use syntax::SyntaxKind;
 
 pub(super) struct Source<'s, 't> {
     tokens: &'t [Token<'s>],
@@ -8,11 +7,8 @@ pub(super) struct Source<'s, 't> {
 }
 
 impl<'s, 't> Source<'s, 't> {
-    pub(super) fn new(lexemes: &'t [Token<'s>]) -> Self {
-        Self {
-            tokens: lexemes,
-            cursor: 0,
-        }
+    pub(super) fn new(tokens: &'t [Token<'s>]) -> Self {
+        Self { tokens, cursor: 0 }
     }
 
     pub(super) fn next_lexeme(&mut self) -> Option<&'t Token<'s>> {
