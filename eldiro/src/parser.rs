@@ -10,10 +10,13 @@ use crate::syntax::SyntaxNode;
 mod event;
 mod expr;
 mod sink;
+mod source;
 
 use event::Event;
 use expr::expr;
 use sink::Sink;
+
+use self::source::Source;
 
 pub fn parse(input: &str) -> Parse {
     let lexemes = Lexer::new(input).collect::<Vec<_>>();
@@ -27,16 +30,14 @@ pub fn parse(input: &str) -> Parse {
 }
 
 struct Parser<'s, 'l> {
-    lexemes: &'l [Lexeme<'s>],
-    cursor: usize,
+    source: Source<'s, 'l>,
     events: Vec<Event>,
 }
 
 impl<'s, 'l> Parser<'s, 'l> {
     fn new(lexemes: &'l [Lexeme<'s>]) -> Self {
         Self {
-            lexemes,
-            cursor: 0,
+            source: Source::new(lexemes),
             events: vec![],
         }
     }
@@ -60,25 +61,11 @@ impl<'s, 'l> Parser<'s, 'l> {
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {
-        self.eat_whitespace();
-        self.peek_raw()
-    }
-
-    fn peek_raw(&mut self) -> Option<SyntaxKind> {
-        self.lexemes
-            .get(self.cursor)
-            .map(|Lexeme { kind, .. }| *kind)
-    }
-
-    fn eat_whitespace(&mut self) {
-        while self.peek_raw() == Some(SyntaxKind::Whitespace) {
-            self.cursor += 1;
-        }
+        self.source.peek_kind()
     }
 
     fn bump(&mut self) {
-        let Lexeme { kind, text } = self.lexemes[self.cursor];
-        self.cursor += 1;
+        let &Lexeme { kind, text } = self.source.next_lexeme().unwrap();
         self.events.push(Event::AddToken {
             kind,
             text: text.into(),
