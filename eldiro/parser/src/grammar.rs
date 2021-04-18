@@ -8,7 +8,10 @@ mod stmt;
 
 pub(crate) fn root(parser: &mut Parser) -> CompletedMarker {
     let marker = parser.start();
-    stmt::stmt(parser);
+
+    while !parser.at_end() {
+        stmt::stmt(parser);
+    }
 
     marker.complete(parser, SyntaxKind::Root)
 }
