@@ -1,4 +1,3 @@
-use self::expr::expr;
 use self::sink::Sink;
 
 use crate::parser::Parser;
@@ -11,11 +10,10 @@ use source::Source;
 use syntax::SyntaxNode;
 
 mod event;
-mod expr;
+mod grammar;
+mod parser;
 mod sink;
 mod source;
-
-mod parser;
 
 pub fn parse(input: &str) -> Parse {
     let tokens = Lexer::new(input).collect::<Vec<_>>();
