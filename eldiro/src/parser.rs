@@ -1,15 +1,10 @@
-use std::iter::Peekable;
-
 #[cfg(test)]
 use expect_test::Expect;
-use rowan::Checkpoint;
 use rowan::GreenNode;
-use rowan::GreenNodeBuilder;
-use rowan::Language;
 
+use crate::lexer::Lexeme;
 use crate::lexer::Lexer;
 use crate::lexer::SyntaxKind;
-use crate::syntax::EldiroLanguage;
 use crate::syntax::SyntaxNode;
 
 mod event;
@@ -20,31 +15,40 @@ use event::Event;
 use expr::expr;
 use sink::Sink;
 
-pub struct Parser<'s> {
-    lexer: Peekable<Lexer<'s>>,
+pub fn parse(input: &str) -> Parse {
+    let lexemes = Lexer::new(input).collect::<Vec<_>>();
+    let parser = Parser::new(&lexemes);
+    let events = parser.parse();
+    let sink = Sink::new(&lexemes, events);
+
+    Parse {
+        green_node: sink.finish(),
+    }
+}
+
+struct Parser<'s, 'l> {
+    lexemes: &'l [Lexeme<'s>],
+    cursor: usize,
     events: Vec<Event>,
 }
 
-impl<'s> Parser<'s> {
-    pub fn new(input: &'s str) -> Self {
+impl<'s, 'l> Parser<'s, 'l> {
+    fn new(lexemes: &'l [Lexeme<'s>]) -> Self {
         Self {
-            lexer: Lexer::new(input).peekable(),
+            lexemes,
+            cursor: 0,
             events: vec![],
         }
     }
 
-    pub fn parse(mut self) -> Parse {
+    fn parse(mut self) -> Vec<Event> {
         self.start_node(SyntaxKind::Root);
 
         expr(&mut self);
 
         self.finish_node();
 
-        let sink = Sink::new(self.events);
-
-        Parse {
-            green_node: sink.finish(),
-        }
+        self.events
     }
 
     fn start_node(&mut self, kind: SyntaxKind) {
@@ -56,11 +60,25 @@ impl<'s> Parser<'s> {
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {
-        self.lexer.peek().map(|(k, _)| *k)
+        self.eat_whitespace();
+        self.peek_raw()
+    }
+
+    fn peek_raw(&mut self) -> Option<SyntaxKind> {
+        self.lexemes
+            .get(self.cursor)
+            .map(|Lexeme { kind, .. }| *kind)
+    }
+
+    fn eat_whitespace(&mut self) {
+        while self.peek_raw() == Some(SyntaxKind::Whitespace) {
+            self.cursor += 1;
+        }
     }
 
     fn bump(&mut self) {
-        let (kind, text) = self.lexer.next().unwrap();
+        let Lexeme { kind, text } = self.lexemes[self.cursor];
+        self.cursor += 1;
         self.events.push(Event::AddToken {
             kind,
             text: text.into(),
@@ -91,7 +109,7 @@ impl Parse {
 
 #[cfg(test)]
 fn check(input: &str, expected_tree: Expect) {
-    let parse = Parser::new(input).parse();
+    let parse = parse(input);
     expected_tree.assert_eq(&parse.debug_tree());
 }
 
@@ -104,5 +122,15 @@ mod tests {
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]])
+    }
+
+    #[test]
+    fn parse_whitespace() {
+        check(
+            "   ",
+            expect![[r#"
+Root@0..3
+  Whitespace@0..3 "   ""#]],
+        )
     }
 }

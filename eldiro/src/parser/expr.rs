@@ -34,7 +34,7 @@ pub(super) fn expr(p: &mut Parser) {
     expr_binding_power(p, 0);
 }
 
-pub(crate) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
+pub(super) fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
     let checkpoint = p.checkpoint();
 
     match p.peek() {
@@ -92,6 +92,40 @@ mod tests {
             expect![[r#"
 Root@0..3
   Num@0..3 "123""#]],
+        )
+    }
+
+    #[test]
+    fn parse_number_preceded_by_whitespace() {
+        check(
+            "   9876",
+            expect![[r#"
+Root@0..7
+  Whitespace@0..3 "   "
+  Num@3..7 "9876""#]],
+        )
+    }
+
+    #[test]
+    fn parse_number_followed_by_whitespace() {
+        check(
+            "1234  ",
+            expect![[r#"
+Root@0..6
+  Num@0..4 "1234"
+  Whitespace@4..6 "  ""#]],
+        )
+    }
+
+    #[test]
+    fn parse_number_surrounded_by_whitespace() {
+        check(
+            "  12 ",
+            expect![[r#"
+Root@0..5
+  Whitespace@0..2 "  "
+  Num@2..4 "12"
+  Whitespace@4..5 " ""#]],
         )
     }
 
@@ -220,6 +254,27 @@ Root@0..7
       Plus@4..5 "+"
       Num@5..6 "1"
     ParenR@6..7 ")""#]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression_with_whitespace() {
+        check(
+            " 1 +   2* 3 ",
+            expect![[r#"
+Root@0..12
+  Whitespace@0..1 " "
+  BinaryExpr@1..12
+    Num@1..2 "1"
+    Whitespace@2..3 " "
+    Plus@3..4 "+"
+    Whitespace@4..7 "   "
+    BinaryExpr@7..12
+      Num@7..8 "2"
+      Star@8..9 "*"
+      Whitespace@9..10 " "
+      Num@10..11 "3"
+      Whitespace@11..12 " ""#]],
         );
     }
 }

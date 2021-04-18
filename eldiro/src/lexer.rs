@@ -57,23 +57,29 @@ impl<'s> Lexer<'s> {
 }
 
 impl<'s> Iterator for Lexer<'s> {
-    type Item = (SyntaxKind, &'s str);
+    type Item = Lexeme<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let kind = self.inner.next()?;
         let text = self.inner.slice();
 
-        Some((kind, text))
+        Some(Self::Item { kind, text })
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct Lexeme<'s> {
+    pub(crate) kind: SyntaxKind,
+    pub(crate) text: &'s str,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn check_single(input: &str, expected_kind: SyntaxKind) {
-        let mut lexer = Lexer::new(input);
-        assert_eq!(lexer.next(), Some((expected_kind, input)));
+    fn check_single(text: &str, kind: SyntaxKind) {
+        let mut lexer = Lexer::new(text);
+        assert_eq!(lexer.next(), Some(Lexeme { kind, text }));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::io;
 
-use eldiro::parser::Parser;
 use io::Write;
+use eldiro::parser::parse;
 
 fn main() -> io::Result<()> {
     let stdin = io::stdin();
@@ -14,7 +14,7 @@ fn main() -> io::Result<()> {
 
         stdin.read_line(&mut input)?;
 
-        let parse = Parser::new(&input).parse();
+        let parse = parse(&input);
         writeln!(stdout, "{}", parse.debug_tree())?;
 
         input.clear();
