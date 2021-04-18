@@ -1,4 +1,4 @@
-use crate::lexer::SyntaxKind;
+use crate::syntax::SyntaxKind;
 
 use super::marker::CompletedMarker;
 use super::Parser;

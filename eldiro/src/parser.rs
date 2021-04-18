@@ -2,10 +2,10 @@
 use expect_test::Expect;
 use rowan::GreenNode;
 
-use crate::lexer::Lexer;
-use crate::lexer::SyntaxKind;
-use crate::lexer::Token;
+use crate::syntax::SyntaxKind;
 use crate::syntax::SyntaxNode;
+use lexer::Lexer;
+use lexer::Token;
 
 mod event;
 mod expr;

@@ -1,2 +1,9 @@
 [workspace]
-members = ['monky', 'monky-test-macros', 'repl', 'eldiro', 'eldiro-cli']
+members = [
+    'monky',
+    'monky-test-macros',
+    'repl',
+    'eldiro',
+    'eldiro-cli',
+    'eldiro/lexer',
+]

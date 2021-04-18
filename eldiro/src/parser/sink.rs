@@ -1,11 +1,12 @@
 use std::mem;
 
+use lexer::Token;
 use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 use rowan::Language;
 
-use crate::lexer::Token;
 use crate::syntax::EldiroLanguage;
+use crate::syntax::SyntaxKind;
 
 use super::event::Event;
 
@@ -69,13 +70,14 @@ impl<'s, 't> Sink<'s, 't> {
 
     fn token(&mut self) {
         let Token { kind, text } = self.tokens[self.cursor];
-        self.builder.token(EldiroLanguage::kind_to_raw(kind), text);
+        self.builder
+            .token(EldiroLanguage::kind_to_raw(kind.into()), text);
         self.cursor += 1;
     }
 
     fn eat_trivia(&mut self) {
         while let Some(lexeme) = self.tokens.get(self.cursor) {
-            if !lexeme.kind.is_trivia() {
+            if !SyntaxKind::from(lexeme.kind).is_trivia() {
                 break;
             }
 
