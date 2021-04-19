@@ -40,12 +40,14 @@ impl Display for Node {
 #[derive(Debug)]
 pub enum Expression {
     Identifier(Identifier),
+    IntegerLiteral(IntegerLiteral),
 }
 
 impl TokenLiteral for Expression {
     fn token_literal(&self) -> String {
         match self {
             Self::Identifier(e) => e.token_literal(),
+            Self::IntegerLiteral(i) => i.token_literal(),
         }
     }
 }
@@ -57,6 +59,7 @@ impl Display for Expression {
             "{}",
             match self {
                 Self::Identifier(e) => e.to_string(),
+                Self::IntegerLiteral(i) => i.to_string(),
             }
         )
     }
@@ -190,7 +193,7 @@ impl Display for ExpressionStatement {
             self.expression
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or_else(String::new)
+                .unwrap_or_default()
         )
     }
 }
@@ -210,6 +213,24 @@ impl TokenLiteral for Identifier {
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value)
+    }
+}
+
+#[derive(Debug)]
+pub struct IntegerLiteral {
+    pub token: Token,
+    pub value: i32,
+}
+
+impl TokenLiteral for IntegerLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for IntegerLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.token_literal())
     }
 }
 

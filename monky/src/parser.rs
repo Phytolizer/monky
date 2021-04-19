@@ -1,6 +1,13 @@
+use std::collections::HashMap;
 use std::mem::swap;
 
+use maplit::hashmap;
+use once_cell::sync::Lazy;
+
+use crate::ast::Expression;
+use crate::ast::ExpressionStatement;
 use crate::ast::Identifier;
+use crate::ast::IntegerLiteral;
 use crate::ast::LetStatement;
 use crate::ast::Program;
 use crate::ast::ReturnStatement;
@@ -8,6 +15,31 @@ use crate::ast::Statement;
 use crate::lexer::Lexer;
 use crate::token::Token;
 use crate::token::TokenKind;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum Precedence {
+    Lowest,
+    Equals,
+    LessGreater,
+    Sum,
+    Product,
+    Prefix,
+    Call,
+}
+
+type PrefixParseFn = fn(&mut Parser) -> Option<Expression>;
+type InfixParseFn = fn(&mut Parser, Expression) -> Option<Expression>;
+
+static PREFIX_PARSE_FNS: Lazy<HashMap<TokenKind, PrefixParseFn>> = Lazy::new(|| {
+    hashmap! {
+        TokenKind::Ident => parse_identifier as PrefixParseFn,
+        TokenKind::Int => parse_integer_literal as PrefixParseFn,
+    }
+});
+
+static INFIX_PARSE_FNS: Lazy<HashMap<TokenKind, InfixParseFn>> = Lazy::new(|| {
+    hashmap! {}
+});
 
 pub struct Parser<'s> {
     lexer: Lexer<'s>,
@@ -54,7 +86,7 @@ impl<'s> Parser<'s> {
         match self.cur_token.as_ref().unwrap().kind {
             TokenKind::Let => self.parse_let_statement().map(Statement::Let),
             TokenKind::Return => self.parse_return_statement().map(Statement::Return),
-            _ => None,
+            _ => self.parse_expression_statement().map(Statement::Expression),
         }
     }
 
@@ -99,6 +131,19 @@ impl<'s> Parser<'s> {
         Some(stmt)
     }
 
+    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
+        let mut stmt = ExpressionStatement {
+            token: self.cur_token.as_ref().unwrap().clone(),
+            ..Default::default()
+        };
+        stmt.expression = parse_expression(self, Precedence::Lowest);
+
+        if self.peek_token_is(TokenKind::Semicolon) {
+            self.next_token();
+        }
+        Some(stmt)
+    }
+
     fn cur_token_is(&self, kind: TokenKind) -> bool {
         self.cur_token
             .as_ref()
@@ -130,6 +175,40 @@ impl<'s> Parser<'s> {
             self.peek_token.as_ref().unwrap().kind
         ));
     }
+}
+
+fn parse_expression(p: &mut Parser, precedence: Precedence) -> Option<Expression> {
+    let prefix = PREFIX_PARSE_FNS.get(&p.cur_token.as_ref().unwrap().kind)?;
+    let left_exp = prefix(p);
+
+    left_exp
+}
+
+fn parse_identifier(p: &mut Parser) -> Option<Expression> {
+    Some(Expression::Identifier(Identifier {
+        token: p.cur_token.as_ref().unwrap().clone(),
+        value: p.cur_token.as_ref().unwrap().literal.clone(),
+    }))
+}
+
+fn parse_integer_literal(p: &mut Parser) -> Option<Expression> {
+    Some(Expression::IntegerLiteral(IntegerLiteral {
+        token: p.cur_token.as_ref().unwrap().clone(),
+        value: p
+            .cur_token
+            .as_ref()
+            .unwrap()
+            .literal
+            .parse()
+            .ok()
+            .or_else(|| {
+                p.errors.push(format!(
+                    "could not parse '{}' as integer",
+                    p.cur_token.as_ref().unwrap().literal
+                ));
+                None
+            })?,
+    }))
 }
 
 impl<'s> Default for Parser<'s> {
@@ -224,5 +303,66 @@ mod tests {
 
             assert_eq!(return_stmt.token_literal(), "return");
         }
+    }
+
+    #[test]
+    fn identifier_expression() {
+        let input = "foobar;";
+
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+        let expression_statement = match &program.statements[0] {
+            Statement::Expression(e) => e,
+            _ => panic!(
+                "expected expression statement to be parsed, got '{}' instead",
+                program.statements[0]
+            ),
+        };
+        let ident = match &expression_statement.expression {
+            Some(Expression::Identifier(i)) => i,
+            _ => panic!(
+                "expected identifier to be parsed, got '{}' instead",
+                expression_statement
+                    .expression
+                    .as_ref()
+                    .map(|x| x.to_string())
+                    .unwrap_or_default()
+            ),
+        };
+        assert_eq!(ident.value, "foobar");
+        assert_eq!(ident.token_literal(), "foobar");
+    }
+
+    #[test]
+    fn integer_literal_expression() {
+        let input = "4;";
+
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+        let stmt = match &program.statements[0] {
+            Statement::Expression(e) => e,
+            _ => panic!(
+                "expected expression statement to be parsed, got '{}' instead",
+                program.statements[0]
+            ),
+        };
+        let literal = match &stmt.expression {
+            Some(Expression::IntegerLiteral(i)) => i,
+            _ => panic!(
+                "expected integer literal to be parsed, got '{}' instead",
+                stmt.expression
+                    .as_ref()
+                    .map(|x| x.to_string())
+                    .unwrap_or_default()
+            ),
+        };
+        assert_eq!(literal.value, 4);
+        assert_eq!(literal.token_literal(), "4");
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 /// The kind of a token.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash)]
 pub enum TokenKind {
     Illegal,
     Eof,
