@@ -1,15 +1,26 @@
+use monky_test_macros::IsAs;
+
 use std::fmt::Debug;
 use std::fmt::Display;
 
+#[derive(Debug, PartialEq)]
 pub enum ObjectKind {
     Integer,
     Boolean,
     Null,
 }
 
+#[derive(Debug, PartialEq, IsAs)]
+pub enum Value {
+    Integer(i64),
+    Boolean(bool),
+    Null,
+}
+
 pub trait Object: Debug + Display {
     fn kind(&self) -> ObjectKind;
     fn inspect(&self) -> String;
+    fn value(&self) -> Value;
 }
 
 #[derive(Debug)]
@@ -30,6 +41,10 @@ impl Object for Integer {
 
     fn inspect(&self) -> String {
         self.to_string()
+    }
+
+    fn value(&self) -> Value {
+        Value::Integer(self.value)
     }
 }
 
@@ -52,6 +67,10 @@ impl Object for Boolean {
     fn inspect(&self) -> String {
         self.to_string()
     }
+
+    fn value(&self) -> Value {
+        Value::Boolean(self.value)
+    }
 }
 
 #[derive(Debug)]
@@ -70,5 +89,9 @@ impl Object for Null {
 
     fn inspect(&self) -> String {
         self.to_string()
+    }
+
+    fn value(&self) -> Value {
+        Value::Null
     }
 }

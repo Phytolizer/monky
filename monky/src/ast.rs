@@ -16,6 +16,9 @@ pub enum Node {
     Program(Program),
     IntegerLiteral(IntegerLiteral),
     ExpressionStatement(ExpressionStatement),
+    Boolean(Boolean),
+    PrefixExpression(PrefixExpression),
+    InfixExpression(InfixExpression),
 }
 
 impl TokenLiteral for Node {
@@ -26,6 +29,9 @@ impl TokenLiteral for Node {
             Node::Program(p) => p.token_literal(),
             Node::IntegerLiteral(i) => i.token_literal(),
             Node::ExpressionStatement(e) => e.token_literal(),
+            Node::Boolean(b) => b.token_literal(),
+            Node::PrefixExpression(p) => p.token_literal(),
+            Node::InfixExpression(i) => i.token_literal(),
         }
     }
 }
@@ -41,6 +47,9 @@ impl Display for Node {
                 Node::Program(n) => n.to_string(),
                 Node::IntegerLiteral(n) => n.to_string(),
                 Node::ExpressionStatement(n) => n.to_string(),
+                Node::Boolean(n) => n.to_string(),
+                Node::PrefixExpression(n) => n.to_string(),
+                Node::InfixExpression(n) => n.to_string(),
             }
         )
     }
