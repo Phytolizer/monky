@@ -4,10 +4,12 @@ use std::mem::swap;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
 
+use crate::ast::BlockStatement;
 use crate::ast::Boolean;
 use crate::ast::Expression;
 use crate::ast::ExpressionStatement;
 use crate::ast::Identifier;
+use crate::ast::IfExpression;
 use crate::ast::InfixExpression;
 use crate::ast::IntegerLiteral;
 use crate::ast::LetStatement;
@@ -42,6 +44,7 @@ static PREFIX_PARSE_FNS: Lazy<HashMap<TokenKind, PrefixParseFn>> = Lazy::new(|| 
         TokenKind::True => parse_boolean_expression as PrefixParseFn,
         TokenKind::False => parse_boolean_expression as PrefixParseFn,
         TokenKind::ParenL => parse_grouped_expression as PrefixParseFn,
+        TokenKind::If => parse_if_expression as PrefixParseFn,
     }
 });
 
@@ -328,6 +331,63 @@ fn parse_grouped_expression(p: &mut Parser) -> Option<Expression> {
     }
 
     exp
+}
+
+fn parse_if_expression(p: &mut Parser) -> Option<Expression> {
+    let token = p.cur_token.as_ref().unwrap().clone();
+
+    if !p.expect_peek(TokenKind::ParenL) {
+        return None;
+    }
+
+    p.next_token();
+    let condition = parse_expression(p, Precedence::Lowest)?;
+
+    if !p.expect_peek(TokenKind::ParenR) {
+        return None;
+    }
+
+    if !p.expect_peek(TokenKind::BraceL) {
+        return None;
+    }
+
+    let consequence = parse_block_statement(p);
+
+    let alternative = if p.peek_token_is(TokenKind::Else) {
+        p.next_token();
+
+        if !p.expect_peek(TokenKind::BraceL) {
+            return None;
+        }
+
+        Some(Box::new(parse_block_statement(p)))
+    } else {
+        None
+    };
+
+    Some(Expression::If(IfExpression {
+        token,
+        condition: Box::new(condition),
+        consequence: Box::new(consequence),
+        alternative,
+    }))
+}
+
+fn parse_block_statement(p: &mut Parser) -> BlockStatement {
+    let token = p.cur_token.as_ref().unwrap().clone();
+    let mut statements = vec![];
+    p.next_token();
+    while p.cur_token.is_some() && !p.cur_token_is(TokenKind::BraceR) {
+        let stmt = p.parse_statement();
+
+        if let Some(stmt) = stmt {
+            statements.push(stmt);
+        }
+
+        p.next_token();
+    }
+
+    BlockStatement { token, statements }
 }
 
 impl<'s> Default for Parser<'s> {
@@ -639,5 +699,51 @@ mod tests {
     #[test]
     fn unary_on_group() {
         check("-(5 + 5)", expect![["(-(5 + 5))"]]);
+    }
+
+    #[test]
+    fn if_expression() {
+        let input = "if (x < y) { x }";
+
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+        let exp = program.statements[0]
+            .as_expression()
+            .unwrap()
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_if()
+            .unwrap();
+        assert_eq!(exp.condition.to_string(), "(x < y)");
+        let consequence = exp.consequence.statements[0].as_expression().unwrap();
+        assert_eq!(consequence.to_string(), "x");
+        assert!(exp.alternative.is_none());
+    }
+
+    #[test]
+    fn if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(program.statements.len(), 1);
+        let exp = program.statements[0]
+            .as_expression()
+            .unwrap()
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_if()
+            .unwrap();
+
+        assert_eq!(exp.condition.to_string(), "(x < y)");
+        assert_eq!(exp.consequence.to_string(), "x");
+        assert_eq!(exp.alternative.as_ref().unwrap().to_string(), "y");
     }
 }

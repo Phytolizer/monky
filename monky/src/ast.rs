@@ -1,6 +1,9 @@
+use itertools::join;
 use monky_test_macros::IsAs;
 
 use std::fmt::Display;
+use std::iter::empty;
+use std::iter::once;
 
 use crate::token::Token;
 
@@ -46,6 +49,7 @@ pub enum Expression {
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     Boolean(Boolean),
+    If(IfExpression),
 }
 
 impl TokenLiteral for Expression {
@@ -56,6 +60,7 @@ impl TokenLiteral for Expression {
             Self::Prefix(p) => p.token_literal(),
             Self::Infix(i) => i.token_literal(),
             Self::Boolean(b) => b.token_literal(),
+            Self::If(i) => i.token_literal(),
         }
     }
 }
@@ -71,6 +76,7 @@ impl Display for Expression {
                 Self::Prefix(p) => p.to_string(),
                 Self::Infix(i) => i.to_string(),
                 Self::Boolean(b) => b.to_string(),
+                Self::If(i) => i.to_string(),
             }
         )
     }
@@ -127,6 +133,165 @@ impl Display for Program {
             write!(f, "{}", stmt)?;
         }
         Ok(())
+    }
+}
+
+pub trait GenericNode<'a>: Display {
+    fn name(&self) -> &'static str;
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>>;
+}
+
+impl<'a> GenericNode<'a> for Statement {
+    fn name(&self) -> &'static str {
+        "Statement"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        match self {
+            Statement::Let(s) => s.children(),
+            Statement::Return(s) => s.children(),
+            Statement::Expression(s) => s.children(),
+        }
+    }
+}
+
+impl<'a> GenericNode<'a> for LetStatement {
+    fn name(&self) -> &'static str {
+        "LetStatement"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        if let Some(value) = &self.value {
+            vec![&self.name, value]
+        } else {
+            vec![&self.name]
+        }
+    }
+}
+
+impl<'a> GenericNode<'a> for Identifier {
+    fn name(&self) -> &'static str {
+        "Identifier"
+    }
+
+    fn children(&self) -> Vec<&'a dyn GenericNode<'a>> {
+        vec![]
+    }
+}
+
+impl<'a> GenericNode<'a> for Expression {
+    fn name(&self) -> &'static str {
+        match self {
+            Expression::Identifier(_) => "Identifier",
+            Expression::IntegerLiteral(_) => "IntegerLiteral",
+            Expression::Prefix(_) => "Prefix",
+            Expression::Infix(_) => "Infix",
+            Expression::Boolean(_) => "Boolean",
+            Expression::If(_) => "If",
+        }
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        match self {
+            Expression::Identifier(e) => e.children(),
+            Expression::IntegerLiteral(e) => e.children(),
+            Expression::Prefix(e) => e.children(),
+            Expression::Infix(e) => e.children(),
+            Expression::Boolean(e) => e.children(),
+            Expression::If(e) => e.children(),
+        }
+    }
+}
+
+impl<'a> GenericNode<'a> for Boolean {
+    fn name(&self) -> &'static str {
+        "Boolean"
+    }
+
+    fn children(&self) -> Vec<&'a dyn GenericNode<'a>> {
+        vec![]
+    }
+}
+
+impl<'a> GenericNode<'a> for IntegerLiteral {
+    fn name(&self) -> &'static str {
+        "IntegerLiteral"
+    }
+
+    fn children(&self) -> Vec<&'a dyn GenericNode<'a>> {
+        vec![]
+    }
+}
+
+impl<'a> GenericNode<'a> for PrefixExpression {
+    fn name(&self) -> &'static str {
+        "PrefixExpression"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        vec![self.right.as_ref()]
+    }
+}
+
+impl<'a> GenericNode<'a> for InfixExpression {
+    fn name(&self) -> &'static str {
+        "InfixExpression"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        vec![self.left.as_ref(), self.right.as_ref()]
+    }
+}
+
+impl<'a> GenericNode<'a> for ReturnStatement {
+    fn name(&self) -> &'static str {
+        "ReturnStatement"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        if let Some(value) = &self.value {
+            vec![value]
+        } else {
+            vec![]
+        }
+    }
+}
+
+impl<'a> GenericNode<'a> for ExpressionStatement {
+    fn name(&self) -> &'static str {
+        "ExpressionStatement"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        if let Some(expression) = self.expression.as_ref() {
+            vec![expression]
+        } else {
+            vec![]
+        }
+    }
+}
+
+fn build_tree<'a>(builder: &mut ptree::TreeBuilder, children: Vec<&'a dyn GenericNode<'a>>) {
+    for child in children {
+        let mut s = child.name().to_string();
+        s.push_str(&format!(r#" "{}""#, child));
+        builder.begin_child(s);
+        build_tree(builder, child.children());
+        builder.end_child();
+    }
+}
+
+impl Program {
+    pub fn pretty_print(&self) -> String {
+        let mut builder = ptree::TreeBuilder::new("Program".into());
+        let mut v = Vec::<&dyn GenericNode>::new();
+        for stmt in self.statements.iter() {
+            v.push(stmt);
+        }
+        build_tree(&mut builder, v);
+        let mut output = Vec::<u8>::new();
+        ptree::write_tree(&builder.build(), &mut output).unwrap();
+        String::from_utf8(output).unwrap()
     }
 }
 
@@ -206,6 +371,24 @@ impl Display for ExpressionStatement {
                 .map(|e| e.to_string())
                 .unwrap_or_default()
         )
+    }
+}
+
+#[derive(Debug)]
+pub struct BlockStatement {
+    pub token: Token,
+    pub statements: Vec<Statement>,
+}
+
+impl TokenLiteral for BlockStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for BlockStatement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", join(self.statements.iter(), ""))
     }
 }
 
@@ -302,10 +485,73 @@ impl Display for Boolean {
     }
 }
 
+#[derive(Debug)]
+pub struct IfExpression {
+    pub token: Token,
+    pub condition: Box<Expression>,
+    pub consequence: Box<BlockStatement>,
+    pub alternative: Option<Box<BlockStatement>>,
+}
+
+impl TokenLiteral for IfExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for IfExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "if{} {}{}",
+            self.condition,
+            self.consequence,
+            self.alternative
+                .as_ref()
+                .map(|c| format!("else {}", c))
+                .unwrap_or_default()
+        )
+    }
+}
+
+impl<'a> GenericNode<'a> for IfExpression {
+    fn name(&self) -> &'static str {
+        "IfExpression"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        if let Some(alternative) = &self.alternative {
+            vec![
+                self.condition.as_ref(),
+                self.consequence.as_ref(),
+                alternative.as_ref(),
+            ]
+        } else {
+            vec![self.condition.as_ref(), self.consequence.as_ref()]
+        }
+    }
+}
+
+impl<'a> GenericNode<'a> for BlockStatement {
+    fn name(&self) -> &'static str {
+        "BlockStatement"
+    }
+
+    fn children(&self) -> Vec<&dyn GenericNode<'_>> {
+        let mut c = Vec::<&dyn GenericNode<'_>>::new();
+        for child in &self.statements {
+            c.push(child);
+        }
+        c
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::Parser;
     use crate::token::TokenKind;
+    use expect_test::expect;
 
     #[test]
     fn display() {
@@ -333,5 +579,23 @@ mod tests {
         };
 
         assert_eq!(program.to_string(), "let myVar = anotherVar;");
+    }
+
+    #[test]
+    fn pretty_print() {
+        let input = "1 + 2 * 3";
+
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+
+        expect![[r#"
+            Program
+            └─ Statement "(1 + (2 * 3))"
+               └─ Infix "(1 + (2 * 3))"
+                  ├─ IntegerLiteral "1"
+                  └─ Infix "(2 * 3)"
+                     ├─ IntegerLiteral "2"
+                     └─ IntegerLiteral "3"
+        "#]].assert_eq(&program.pretty_print());
     }
 }
