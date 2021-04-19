@@ -247,6 +247,7 @@ fn parse_expression(p: &mut Parser, precedence: Precedence) -> Option<Expression
     Some(left_exp)
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn parse_identifier(p: &mut Parser) -> Option<Expression> {
     Some(Expression::Identifier(Identifier {
         token: p.cur_token.as_ref().unwrap().clone(),
@@ -315,6 +316,8 @@ impl<'s> Default for Parser<'s> {
 
 #[cfg(test)]
 mod tests {
+    use expect_test::expect;
+    use expect_test::Expect;
     use monky_test_macros::test_struct;
 
     use crate::ast::Statement;
@@ -335,43 +338,26 @@ mod tests {
         check_parser_errors(&p);
         assert_eq!(program.statements.len(), 3);
 
-        test_struct!(
-            struct {
-                expected_identifier: &'static str,
-            }{
-                {"x"},
-                {"y"},
-                {"foobar"},
-            }
-        );
+        let tests = vec![expect![["x"]], expect![["y"]], expect![["foobar"]]];
 
-        for (i, test) in tests.iter().enumerate() {
+        for (i, expected_identifier) in tests.into_iter().enumerate() {
             let stmt = &program.statements[i];
-            test_let_statement(stmt, test.expected_identifier);
+            test_let_statement(stmt, expected_identifier);
         }
     }
 
     fn check_parser_errors(p: &Parser) {
-        let errors = p.errors();
-        if errors.is_empty() {
-            return;
-        }
-
-        eprintln!("parser has {} errors", errors.len());
-        for msg in errors {
-            eprintln!("parser error: {}", msg);
-        }
-        panic!();
+        expect![[""]].assert_eq(&p.errors().join("\n"));
     }
 
-    fn test_let_statement(stmt: &Statement, expected_identifier: &str) {
-        assert_eq!(stmt.token_literal(), "let");
+    fn test_let_statement(stmt: &Statement, expected_identifier: Expect) {
+        expect![["let"]].assert_eq(&stmt.token_literal());
         let let_stmt = match stmt {
             Statement::Let(l) => l,
             _ => panic!("expected let statement, got: {:#?}", stmt),
         };
-        assert_eq!(let_stmt.name.value, expected_identifier);
-        assert_eq!(let_stmt.name.token_literal(), expected_identifier);
+        expected_identifier.assert_eq(&let_stmt.name.value);
+        expected_identifier.assert_eq(&let_stmt.name.token_literal());
     }
 
     #[test]
@@ -392,7 +378,7 @@ mod tests {
                 _ => panic!("expected return statement, got: {:#?}", stmt),
             };
 
-            assert_eq!(return_stmt.token_literal(), "return");
+            expect![["return"]].assert_eq(&return_stmt.token_literal());
         }
     }
 
@@ -423,8 +409,8 @@ mod tests {
                     .unwrap_or_default()
             ),
         };
-        assert_eq!(ident.value, "foobar");
-        assert_eq!(ident.token_literal(), "foobar");
+        expect![["foobar"]].assert_eq(&ident.value);
+        expect![["foobar"]].assert_eq(&ident.token_literal());
     }
 
     #[test]
@@ -536,23 +522,14 @@ mod tests {
             check_parser_errors(&p);
 
             assert_eq!(program.statements.len(), 1);
-            let stmt = match &program.statements[0] {
-                Statement::Expression(e) => e,
-                _ => panic!(
-                    "expected expression statement to be parsed, got '{}' instead",
-                    program.statements[0]
-                ),
-            };
-            let exp = match &stmt.expression {
-                Some(Expression::Infix(i)) => i,
-                _ => panic!(
-                    "expected infix expression to be parsed, got '{}' instead",
-                    stmt.expression
-                        .as_ref()
-                        .map(|x| x.to_string())
-                        .unwrap_or_default()
-                ),
-            };
+            let exp = program.statements[0]
+                .as_expression()
+                .unwrap()
+                .expression
+                .as_ref()
+                .unwrap()
+                .as_infix()
+                .unwrap();
 
             test_integer_literal(&exp.left, test.left_value);
             assert_eq!(exp.operator, test.operator);
@@ -560,75 +537,67 @@ mod tests {
         }
     }
 
+    fn check(input: &str, expected: Expect) {
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        expected.assert_eq(&program.to_string());
+    }
+
     #[test]
-    fn operator_precedence_parsing() {
-        test_struct! {
-            struct {
-                input: &'static str,
-                expected: &'static str,
-            }{
-                {
-                    "-a * b",
-                    "((-a) * b)",
-                },
-                {
-                    "!-a",
-                    "(!(-a))",
-                },
-                {
-                    "a + b + c",
-                    "((a + b) + c)",
-                },
-                {
-                    "a + b - c",
-                    "((a + b) - c)",
-                },
-                {
-                    "a * b * c",
-                    "((a * b) * c)",
-                },
-                {
-                    "a * b / c",
-                    "((a * b) / c)",
-                },
-                {
-                    "a + b / c",
-                    "(a + (b / c))",
-                },
-                {
-                    "a + b * c + d / e - f",
-                    "(((a + (b * c)) + (d / e)) - f)",
-                },
-                {
-                    "3 + 4; -5 * 5",
-                    "(3 + 4)((-5) * 5)",
-                },
-                {
-                    "5 > 4 == 3 < 4",
-                    "((5 > 4) == (3 < 4))",
-                },
-                {
-                    "5 < 4 != 3 > 4",
-                    "((5 < 4) != (3 > 4))",
-                },
-                {
-                    "3 + 4 * 5 == 3 * 1 + 4 * 5",
-                    "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
-                },
-                {
-                    "3 + 4 * 5 == 3 * 1 + 4 * 5",
-                    "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
-                }
-            }
-        }
+    fn unary_trumps_infix() {
+        check("-a * b", expect![["((-a) * b)"]]);
+    }
 
-        for test in tests {
-            let mut p = Parser::new(test.input);
-            let program = p.parse_program();
-            check_parser_errors(&p);
-
-            let actual = program.to_string();
-            assert_eq!(actual, test.expected);
-        }
+    #[test]
+    fn unary_nests_properly() {
+        check("!-a", expect![["(!(-a))"]]);
+    }
+    #[test]
+    fn addition_is_left_associative() {
+        check("a + b + c", expect![["((a + b) + c)"]]);
+    }
+    #[test]
+    fn addition_and_subtraction_left_associate() {
+        check("a + b - c", expect![["((a + b) - c)"]]);
+    }
+    #[test]
+    fn multiplication_is_left_associative() {
+        check("a * b * c", expect![["((a * b) * c)"]]);
+    }
+    #[test]
+    fn multiplication_and_division_left_associate() {
+        check("a * b / c", expect![["((a * b) / c)"]]);
+    }
+    #[test]
+    fn division_trumps_addition() {
+        check("a + b / c", expect![["(a + (b / c))"]]);
+    }
+    #[test]
+    fn operator_precedence_long_expression() {
+        check(
+            "a + b * c + d / e - f",
+            expect![["(((a + (b * c)) + (d / e)) - f)"]],
+        );
+    }
+    #[test]
+    fn operator_precedence_multiple_statements() {
+        check("3 + 4; -5 * 5", expect![["(3 + 4)((-5) * 5)"]]);
+    }
+    #[test]
+    fn lt_gt_trump_equality_check() {
+        check("5 > 4 == 3 < 4", expect![["((5 > 4) == (3 < 4))"]]);
+    }
+    #[test]
+    fn lt_gt_trump_inequality_check() {
+        check("5 < 4 != 3 > 4", expect![["((5 < 4) != (3 > 4))"]]);
+    }
+    #[test]
+    fn arithmetic_trumps_equality() {
+        check(
+            "3 + 4 * 5 == 3 * 1 + 4 * 5",
+            expect![["((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"]],
+        );
     }
 }

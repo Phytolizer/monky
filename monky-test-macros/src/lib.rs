@@ -1,4 +1,6 @@
+use inflections::Inflect;
 use proc_macro::TokenStream;
+use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
 use syn::braced;
@@ -8,7 +10,9 @@ use syn::parse_macro_input;
 use syn::punctuated::Punctuated;
 use syn::token::Brace;
 use syn::Expr;
+use syn::Fields;
 use syn::Ident;
+use syn::ItemEnum;
 use syn::LitChar;
 use syn::Token;
 use syn::Type;
@@ -123,7 +127,6 @@ pub fn test_struct(input: TokenStream) -> TokenStream {
     let test_struct_components = input.struct_components.into_iter().collect::<Vec<_>>();
 
     let test_struct = quote! {
-        #[derive(Debug, PartialEq)]
         struct Test {
             #(#test_struct_components),*
         }
@@ -206,6 +209,68 @@ pub fn lexer_simple_chars(input: TokenStream) -> TokenStream {
             #(#match_arms)*
             _ => {}
         }
+    };
+    output.into()
+}
+
+#[proc_macro_derive(IsAs)]
+pub fn derive_is_as(input: TokenStream) -> TokenStream {
+    let e = parse_macro_input!(input as ItemEnum);
+    let e_name = &e.ident;
+    let e_vis = &e.vis;
+
+    let mut defs = vec![];
+    for item in &e.variants {
+        if item.fields.len() != 1 {
+            continue;
+        }
+
+        let fields = if let Fields::Unnamed(f) = &item.fields {
+            f
+        } else {
+            continue;
+        };
+
+        let item_name = &item.ident;
+        let field_type = &fields.unnamed[0].ty;
+
+        let is_ = format_ident!("is_{}", item_name.to_string().to_snake_case());
+        let as_ = format_ident!("as_{}", item_name.to_string().to_snake_case());
+        let try_into_ = format_ident!("try_into_{}", item_name.to_string().to_snake_case());
+
+        let err_msg = format!(
+            "enum {} did not match the expected variant {}::{}",
+            e_name, e_name, item_name
+        );
+
+        defs.push(quote! {
+            impl #e_name {
+                #e_vis fn #is_(&self) -> bool {
+                    match self {
+                        Self::#item_name(_) => true,
+                        _ => false,
+                    }
+                }
+
+                #e_vis fn #as_(&self) -> Option<&#field_type> {
+                    match self {
+                        Self::#item_name(value) => Some(value),
+                        _ => None,
+                    }
+                }
+
+                #e_vis fn #try_into_(self) -> Result<#field_type, &'static str> {
+                    match self {
+                        Self::#item_name(value) => Ok(value),
+                        _ => Err(#err_msg),
+                    }
+                }
+            }
+        });
+    }
+
+    let output = quote! {
+        #(#defs)*
     };
     output.into()
 }

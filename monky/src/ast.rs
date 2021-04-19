@@ -1,3 +1,5 @@
+use monky_test_macros::IsAs;
+
 use std::fmt::Display;
 
 use crate::token::Token;
@@ -37,7 +39,7 @@ impl Display for Node {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, IsAs)]
 pub enum Expression {
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
@@ -71,7 +73,7 @@ impl Display for Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, IsAs)]
 pub enum Statement {
     Let(LetStatement),
     Return(ReturnStatement),

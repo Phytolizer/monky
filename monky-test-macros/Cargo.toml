@@ -13,4 +13,4 @@ proc-macro = true
 inflections = "1.1.1"
 proc-macro2 = "1.0.26"
 quote = "1.0.9"
-syn = "1.0.69"
+syn = { version = "1.0.69", features = ["full"] }
