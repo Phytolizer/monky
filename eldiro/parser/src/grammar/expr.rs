@@ -36,15 +36,17 @@ pub(crate) fn expr(p: &mut Parser) -> Option<CompletedMarker> {
 }
 
 fn lhs(parser: &mut Parser) -> Option<CompletedMarker> {
-    let cm = match parser.peek() {
-        Some(SyntaxKind::Num) => literal(parser),
-        Some(SyntaxKind::Ident) => variable_ref(parser),
-        Some(SyntaxKind::Minus) => prefix_expr(parser),
-        Some(SyntaxKind::ParenL) => paren_expr(parser),
-        _ => {
-            parser.error();
-            return None;
-        }
+    let cm = if parser.at(SyntaxKind::Num) {
+        literal(parser)
+    } else if parser.at(SyntaxKind::Ident) {
+        variable_ref(parser)
+    } else if parser.at(SyntaxKind::Minus) {
+        prefix_expr(parser)
+    } else if parser.at(SyntaxKind::ParenL) {
+        paren_expr(parser)
+    } else {
+        parser.error();
+        return None;
     };
     Some(cm)
 }
@@ -94,12 +96,16 @@ pub(crate) fn expr_binding_power(
     let mut lhs = lhs(parser)?;
 
     loop {
-        let op = match parser.peek() {
-            Some(SyntaxKind::Plus) => BinaryOp::Add,
-            Some(SyntaxKind::Minus) => BinaryOp::Sub,
-            Some(SyntaxKind::Star) => BinaryOp::Mul,
-            Some(SyntaxKind::Slash) => BinaryOp::Div,
-            _ => break,
+        let op = if parser.at(SyntaxKind::Plus) {
+            BinaryOp::Add
+        } else if parser.at(SyntaxKind::Minus) {
+            BinaryOp::Sub
+        } else if parser.at(SyntaxKind::Star) {
+            BinaryOp::Mul
+        } else if parser.at(SyntaxKind::Slash) {
+            BinaryOp::Div
+        } else {
+            break;
         };
 
         let (left_binding_power, right_binding_power) = op.binding_power();
@@ -382,11 +388,12 @@ mod tests {
         check(
             "(foo",
             expect![[r#"
-Root@0..4
-  ParenExpr@0..4
-    ParenL@0..1 "("
-    VariableRef@1..4
-      Ident@1..4 "foo""#]],
+                Root@0..4
+                  ParenExpr@0..4
+                    ParenL@0..1 "("
+                    VariableRef@1..4
+                      Ident@1..4 "foo"
+                error at 1..4: expected `+`, `-`, `*`, `/` or `)`"#]],
         )
     }
 }

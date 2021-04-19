@@ -43,11 +43,13 @@ pub enum TokenKind {
 mod tests {
     use super::*;
     use crate::Lexer;
-    use crate::Token;
 
     fn check_single(text: &str, kind: TokenKind) {
         let mut lexer = Lexer::new(text);
-        assert_eq!(lexer.next(), Some(Token { kind, text }));
+        let token = lexer.next().unwrap();
+
+        assert_eq!(token.kind, kind);
+        assert_eq!(token.text, text);
     }
 
     #[test]

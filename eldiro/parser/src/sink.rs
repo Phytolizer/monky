@@ -1,11 +1,13 @@
 use std::mem;
 
 use lexer::Token;
-use rowan::GreenNode;
 use rowan::GreenNodeBuilder;
 use rowan::Language;
 use syntax::EldiroLanguage;
 use syntax::SyntaxKind;
+
+use crate::parser::ParseError;
+use crate::Parse;
 
 use super::event::Event;
 
@@ -14,6 +16,7 @@ pub(super) struct Sink<'s, 't> {
     tokens: &'t [Token<'s>],
     cursor: usize,
     events: Vec<Event>,
+    errors: Vec<ParseError>,
 }
 
 impl<'s, 't> Sink<'s, 't> {
@@ -23,10 +26,11 @@ impl<'s, 't> Sink<'s, 't> {
             tokens,
             cursor: 0,
             events,
+            errors: vec![],
         }
     }
 
-    pub(super) fn finish(mut self) -> GreenNode {
+    pub(super) fn finish(mut self) -> Parse {
         for i in 0..self.events.len() {
             match mem::replace(&mut self.events[i], Event::Placeholder) {
                 Event::StartNode {
@@ -60,15 +64,19 @@ impl<'s, 't> Sink<'s, 't> {
                 Event::AddToken => self.token(),
                 Event::FinishNode => self.builder.finish_node(),
                 Event::Placeholder => {}
+                Event::Error(error) => self.errors.push(error),
             }
 
             self.eat_trivia();
         }
-        self.builder.finish()
+        Parse {
+            green_node: self.builder.finish(),
+            errors: self.errors,
+        }
     }
 
     fn token(&mut self) {
-        let Token { kind, text } = self.tokens[self.cursor];
+        let Token { kind, text, .. } = self.tokens[self.cursor];
         self.builder
             .token(EldiroLanguage::kind_to_raw(kind.into()), text);
         self.cursor += 1;

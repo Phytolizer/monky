@@ -1,4 +1,8 @@
 use logos::Logos;
+use std::convert::TryFrom;
+use std::ops::Range as StdRange;
+use text_size::TextRange;
+use text_size::TextSize;
 
 mod token_kind;
 
@@ -23,7 +27,15 @@ impl<'s> Iterator for Lexer<'s> {
         let kind = self.inner.next()?;
         let text = self.inner.slice();
 
-        Some(Self::Item { kind, text })
+        let range = {
+            let StdRange { start, end } = self.inner.span();
+            let start = TextSize::try_from(start).unwrap();
+            let end = TextSize::try_from(end).unwrap();
+
+            TextRange::new(start, end)
+        };
+
+        Some(Self::Item { kind, text, range })
     }
 }
 
@@ -31,4 +43,5 @@ impl<'s> Iterator for Lexer<'s> {
 pub struct Token<'s> {
     pub kind: TokenKind,
     pub text: &'s str,
+    pub range: TextRange,
 }

@@ -2,6 +2,7 @@ use self::sink::Sink;
 
 use crate::parser::Parser;
 
+use crate::parser::ParseError;
 #[cfg(test)]
 use expect_test::Expect;
 use lexer::Lexer;
@@ -22,21 +23,28 @@ pub fn parse(input: &str) -> Parse {
     let events = parser.parse();
     let sink = Sink::new(&tokens, events);
 
-    Parse {
-        green_node: sink.finish(),
-    }
+    sink.finish()
 }
 
 pub struct Parse {
     green_node: GreenNode,
+    errors: Vec<ParseError>,
 }
 
 impl Parse {
     pub fn debug_tree(&self) -> String {
+        let mut s = String::new();
+
         let syntax_node = SyntaxNode::new_root(self.green_node.clone());
         let formatted = format!("{:#?}", syntax_node);
 
-        formatted[0..formatted.len() - 1].to_string()
+        s.push_str(&formatted[0..formatted.len() - 1]);
+
+        for error in &self.errors {
+            s.push_str(&format!("\n{}", error));
+        }
+
+        s
     }
 }
 
