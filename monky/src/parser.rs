@@ -242,12 +242,14 @@ impl<'s> Parser<'s> {
 }
 
 fn parse_expression(p: &mut Parser, precedence: Precedence) -> Option<Expression> {
-    let prefix = PREFIX_PARSE_FNS
-        .get(&p.cur_token.as_ref().unwrap().kind)
-        .or_else(|| {
-            p.no_prefix_parse_fn_error(p.cur_token.as_ref().unwrap().kind);
-            None
-        })?;
+    let tok = p.cur_token.as_ref();
+    if tok.is_none() {
+        p.errors.push(String::from("unexpected end of input"));
+    }
+    let prefix = PREFIX_PARSE_FNS.get(&tok?.kind).or_else(|| {
+        p.no_prefix_parse_fn_error(p.cur_token.as_ref().unwrap().kind);
+        None
+    })?;
     let mut left_exp = prefix(p)?;
 
     while !p.peek_token_is(TokenKind::Semicolon) && precedence < p.peek_precedence() {

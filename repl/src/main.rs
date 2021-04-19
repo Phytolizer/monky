@@ -2,7 +2,9 @@ use dialoguer::console::style;
 use dialoguer::console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Input;
+use log::warn;
 use monky::lexer::Lexer;
+use monky::parser::Parser;
 
 fn main() {
     log4rs::init_file("monky-log.yml", Default::default()).unwrap();
@@ -24,10 +26,13 @@ fn main() {
             break;
         }
 
-        let lexer = Lexer::new(text.as_str());
-
-        for tok in lexer {
-            println!("{:?}", tok);
+        let mut parser = Parser::new(&text);
+        let program = parser.parse_program();
+        for error in parser.errors() {
+            warn!("{}", error);
         }
+
+        println!("{}", program);
+        println!("{}", program.pretty_print());
     }
 }
