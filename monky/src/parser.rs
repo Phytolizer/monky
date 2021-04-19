@@ -701,6 +701,14 @@ mod tests {
         check("-(5 + 5)", expect![["(-(5 + 5))"]]);
     }
 
+    fn check_pretty(input: &str, expected: Expect) {
+        let mut p = Parser::new(input);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        expected.assert_eq(&program.pretty_print());
+    }
+
     #[test]
     fn if_expression() {
         let input = "if (x < y) { x }";
@@ -722,6 +730,21 @@ mod tests {
         let consequence = exp.consequence.statements[0].as_expression().unwrap();
         assert_eq!(consequence.to_string(), "x");
         assert!(exp.alternative.is_none());
+
+        check_pretty(
+            input,
+            expect![[r#"
+            Program
+            └─ Statement "if(x < y) x"
+               └─ If "if(x < y) x"
+                  ├─ Infix "(x < y)"
+                  │  ├─ Identifier "x"
+                  │  └─ Identifier "y"
+                  └─ BlockStatement "x"
+                     └─ Statement "x"
+                        └─ Identifier "x"
+        "#]],
+        );
     }
 
     #[test]
@@ -745,5 +768,20 @@ mod tests {
         assert_eq!(exp.condition.to_string(), "(x < y)");
         assert_eq!(exp.consequence.to_string(), "x");
         assert_eq!(exp.alternative.as_ref().unwrap().to_string(), "y");
+
+        check_pretty(input, expect![[r#"
+            Program
+            └─ Statement "if(x < y) xelse y"
+               └─ If "if(x < y) xelse y"
+                  ├─ Infix "(x < y)"
+                  │  ├─ Identifier "x"
+                  │  └─ Identifier "y"
+                  ├─ BlockStatement "x"
+                  │  └─ Statement "x"
+                  │     └─ Identifier "x"
+                  └─ BlockStatement "y"
+                     └─ Statement "y"
+                        └─ Identifier "y"
+        "#]]);
     }
 }
