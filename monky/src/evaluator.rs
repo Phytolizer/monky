@@ -23,7 +23,18 @@ pub fn eval(node: ast::Node) -> Option<Box<dyn Object>> {
             let right = eval(ast::Node::Expression(*i.right))?;
             eval_infix_expression(left, i.operator, right)
         }
+        ast::Node::BlockStatement(b) => eval_statements(b.statements),
+        ast::Node::IfExpression(i) => eval_if_expression(i),
         _ => None,
+    }
+}
+
+fn eval_if_expression(i: ast::IfExpression) -> Option<Box<dyn Object>> {
+    let condition = eval(ast::Node::Expression(*i.condition))?;
+    if condition.is_truthy() {
+        eval(ast::Node::BlockStatement(*i.consequence))
+    } else {
+        eval(ast::Node::BlockStatement(*i.alternative?))
     }
 }
 
@@ -89,6 +100,7 @@ fn eval_expression(expression: ast::Expression) -> Option<Box<dyn Object>> {
         Expression::Boolean(b) => ast::Node::Boolean(b),
         Expression::Prefix(p) => ast::Node::PrefixExpression(p),
         Expression::Infix(i) => ast::Node::InfixExpression(i),
+        Expression::If(i) => ast::Node::IfExpression(i),
         _ => return None,
     })
 }
@@ -411,6 +423,63 @@ mod tests {
             Some(
                 Boolean {
                     value: false,
+                },
+            )"#]],
+        )
+    }
+
+    #[test]
+    fn if_expression() {
+        check(
+            "if (true) { 10 }",
+            expect![[r#"
+            Some(
+                Integer {
+                    value: 10,
+                },
+            )"#]],
+        )
+    }
+
+    #[test]
+    fn if_expression_false_condition() {
+        check("if (false) { 10 }", expect![[r#"None"#]])
+    }
+
+    #[test]
+    fn if_expression_expression_condition() {
+        check(
+            "if ((2 < 3) == true) { 10 }",
+            expect![[r#"
+            Some(
+                Integer {
+                    value: 10,
+                },
+            )"#]],
+        )
+    }
+
+    #[test]
+    fn if_else_expression_picking_if() {
+        check(
+            "if (2 < 3) { 10 } else { 20 }",
+            expect![[r#"
+            Some(
+                Integer {
+                    value: 10,
+                },
+            )"#]],
+        )
+    }
+
+    #[test]
+    fn if_else_expression_picking_else() {
+        check(
+            "if (2 > 3) { 10 } else { 20 }",
+            expect![[r#"
+            Some(
+                Integer {
+                    value: 20,
                 },
             )"#]],
         )

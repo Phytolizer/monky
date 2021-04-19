@@ -21,6 +21,7 @@ pub trait Object: Debug + Display {
     fn kind(&self) -> ObjectKind;
     fn inspect(&self) -> String;
     fn value(&self) -> Value;
+    fn is_truthy(&self) -> bool;
 }
 
 #[derive(Debug)]
@@ -45,6 +46,10 @@ impl Object for Integer {
 
     fn value(&self) -> Value {
         Value::Integer(self.value)
+    }
+
+    fn is_truthy(&self) -> bool {
+        true
     }
 }
 
@@ -71,6 +76,10 @@ impl Object for Boolean {
     fn value(&self) -> Value {
         Value::Boolean(self.value)
     }
+
+    fn is_truthy(&self) -> bool {
+        self.value
+    }
 }
 
 #[derive(Debug)]
@@ -93,5 +102,9 @@ impl Object for Null {
 
     fn value(&self) -> Value {
         Value::Null
+    }
+
+    fn is_truthy(&self) -> bool {
+        false
     }
 }

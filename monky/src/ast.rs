@@ -19,6 +19,8 @@ pub enum Node {
     Boolean(Boolean),
     PrefixExpression(PrefixExpression),
     InfixExpression(InfixExpression),
+    BlockStatement(BlockStatement),
+    IfExpression(IfExpression),
 }
 
 impl TokenLiteral for Node {
@@ -32,6 +34,8 @@ impl TokenLiteral for Node {
             Node::Boolean(b) => b.token_literal(),
             Node::PrefixExpression(p) => p.token_literal(),
             Node::InfixExpression(i) => i.token_literal(),
+            Node::BlockStatement(b) => b.token_literal(),
+            Node::IfExpression(i) => i.token_literal(),
         }
     }
 }
@@ -50,6 +54,8 @@ impl Display for Node {
                 Node::Boolean(n) => n.to_string(),
                 Node::PrefixExpression(n) => n.to_string(),
                 Node::InfixExpression(n) => n.to_string(),
+                Node::BlockStatement(n) => n.to_string(),
+                Node::IfExpression(n) => n.to_string(),
             }
         )
     }
