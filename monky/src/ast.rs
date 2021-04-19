@@ -45,6 +45,7 @@ pub enum Expression {
     IntegerLiteral(IntegerLiteral),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
+    Boolean(Boolean),
 }
 
 impl TokenLiteral for Expression {
@@ -54,6 +55,7 @@ impl TokenLiteral for Expression {
             Self::IntegerLiteral(i) => i.token_literal(),
             Self::Prefix(p) => p.token_literal(),
             Self::Infix(i) => i.token_literal(),
+            Self::Boolean(b) => b.token_literal(),
         }
     }
 }
@@ -68,6 +70,7 @@ impl Display for Expression {
                 Self::IntegerLiteral(i) => i.to_string(),
                 Self::Prefix(p) => p.to_string(),
                 Self::Infix(i) => i.to_string(),
+                Self::Boolean(b) => b.to_string(),
             }
         )
     }
@@ -278,6 +281,24 @@ impl TokenLiteral for InfixExpression {
 impl Display for InfixExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({} {} {})", self.left, self.operator, self.right)
+    }
+}
+
+#[derive(Debug)]
+pub struct Boolean {
+    pub token: Token,
+    pub value: bool,
+}
+
+impl TokenLiteral for Boolean {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for Boolean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.token_literal())
     }
 }
 

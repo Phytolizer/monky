@@ -4,6 +4,7 @@ use std::mem::swap;
 use maplit::hashmap;
 use once_cell::sync::Lazy;
 
+use crate::ast::Boolean;
 use crate::ast::Expression;
 use crate::ast::ExpressionStatement;
 use crate::ast::Identifier;
@@ -38,6 +39,9 @@ static PREFIX_PARSE_FNS: Lazy<HashMap<TokenKind, PrefixParseFn>> = Lazy::new(|| 
         TokenKind::Int => parse_integer_literal as PrefixParseFn,
         TokenKind::Bang => parse_prefix_expression as PrefixParseFn,
         TokenKind::Minus => parse_prefix_expression as PrefixParseFn,
+        TokenKind::True => parse_boolean_expression as PrefixParseFn,
+        TokenKind::False => parse_boolean_expression as PrefixParseFn,
+        TokenKind::ParenL => parse_grouped_expression as PrefixParseFn,
     }
 });
 
@@ -135,18 +139,16 @@ impl<'s> Parser<'s> {
     }
 
     fn parse_let_statement(&mut self) -> Option<LetStatement> {
-        let mut stmt = LetStatement {
-            token: self.cur_token.as_ref().unwrap().clone(),
-            ..Default::default()
-        };
+        let token = self.cur_token.as_ref().unwrap().clone();
 
         if !self.expect_peek(TokenKind::Ident) {
             return None;
         }
 
-        stmt.name = Identifier {
-            token: self.cur_token.as_ref().unwrap().clone(),
-            value: self.cur_token.as_ref().unwrap().literal.clone(),
+        let name_token = self.cur_token.as_ref().unwrap().clone();
+        let name = Identifier {
+            value: name_token.literal.clone(),
+            token: name_token,
         };
 
         if !self.expect_peek(TokenKind::Assign) {
@@ -157,7 +159,11 @@ impl<'s> Parser<'s> {
             self.next_token();
         }
 
-        Some(stmt)
+        Some(LetStatement {
+            token,
+            name,
+            ..Default::default()
+        })
     }
 
     fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
@@ -303,6 +309,27 @@ fn parse_infix_expression(p: &mut Parser, left: Expression) -> Option<Expression
     }))
 }
 
+#[allow(clippy::unnecessary_wraps)]
+fn parse_boolean_expression(p: &mut Parser) -> Option<Expression> {
+    let token = p.cur_token.as_ref().unwrap().clone();
+    Some(Expression::Boolean(Boolean {
+        value: token.kind == TokenKind::True,
+        token,
+    }))
+}
+
+fn parse_grouped_expression(p: &mut Parser) -> Option<Expression> {
+    p.next_token();
+
+    let exp = parse_expression(p, Precedence::Lowest);
+
+    if !p.expect_peek(TokenKind::ParenR) {
+        return None;
+    }
+
+    exp
+}
+
 impl<'s> Default for Parser<'s> {
     fn default() -> Self {
         Self {
@@ -338,11 +365,17 @@ mod tests {
         check_parser_errors(&p);
         assert_eq!(program.statements.len(), 3);
 
-        let tests = vec![expect![["x"]], expect![["y"]], expect![["foobar"]]];
+        let tests = vec![
+            (expect![["x"]], expect![["5"]]),
+            (expect![["y"]], expect![["10"]]),
+            (expect![["foobar"]], expect![["3358093"]]),
+        ];
 
-        for (i, expected_identifier) in tests.into_iter().enumerate() {
+        for (i, (expected_identifier, expected_value)) in tests.into_iter().enumerate() {
             let stmt = &program.statements[i];
             test_let_statement(stmt, expected_identifier);
+
+            // expected_value.assert_eq(&stmt.as_let().unwrap().value.as_ref().unwrap().to_string());
         }
     }
 
@@ -352,10 +385,7 @@ mod tests {
 
     fn test_let_statement(stmt: &Statement, expected_identifier: Expect) {
         expect![["let"]].assert_eq(&stmt.token_literal());
-        let let_stmt = match stmt {
-            Statement::Let(l) => l,
-            _ => panic!("expected let statement, got: {:#?}", stmt),
-        };
+        let let_stmt = stmt.as_let().unwrap();
         expected_identifier.assert_eq(&let_stmt.name.value);
         expected_identifier.assert_eq(&let_stmt.name.token_literal());
     }
@@ -373,10 +403,7 @@ mod tests {
 
         assert_eq!(program.statements.len(), 3);
         for stmt in program.statements {
-            let return_stmt = match stmt {
-                Statement::Return(r) => r,
-                _ => panic!("expected return statement, got: {:#?}", stmt),
-            };
+            let return_stmt = stmt.as_return().unwrap();
 
             expect![["return"]].assert_eq(&return_stmt.token_literal());
         }
@@ -391,24 +418,13 @@ mod tests {
         check_parser_errors(&p);
 
         assert_eq!(program.statements.len(), 1);
-        let expression_statement = match &program.statements[0] {
-            Statement::Expression(e) => e,
-            _ => panic!(
-                "expected expression statement to be parsed, got '{}' instead",
-                program.statements[0]
-            ),
-        };
-        let ident = match &expression_statement.expression {
-            Some(Expression::Identifier(i)) => i,
-            _ => panic!(
-                "expected identifier to be parsed, got '{}' instead",
-                expression_statement
-                    .expression
-                    .as_ref()
-                    .map(|x| x.to_string())
-                    .unwrap_or_default()
-            ),
-        };
+        let expression_statement = program.statements[0].as_expression().unwrap();
+        let ident = expression_statement
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_identifier()
+            .unwrap();
         expect![["foobar"]].assert_eq(&ident.value);
         expect![["foobar"]].assert_eq(&ident.token_literal());
     }
@@ -422,23 +438,13 @@ mod tests {
         check_parser_errors(&p);
 
         assert_eq!(program.statements.len(), 1);
-        let stmt = match &program.statements[0] {
-            Statement::Expression(e) => e,
-            _ => panic!(
-                "expected expression statement to be parsed, got '{}' instead",
-                program.statements[0]
-            ),
-        };
-        let literal = match &stmt.expression {
-            Some(Expression::IntegerLiteral(i)) => i,
-            _ => panic!(
-                "expected integer literal to be parsed, got '{}' instead",
-                stmt.expression
-                    .as_ref()
-                    .map(|x| x.to_string())
-                    .unwrap_or_default()
-            ),
-        };
+        let stmt = program.statements[0].as_expression().unwrap();
+        let literal = stmt
+            .expression
+            .as_ref()
+            .unwrap()
+            .as_integer_literal()
+            .unwrap();
         assert_eq!(literal.value, 4);
         assert_eq!(literal.token_literal(), "4");
     }
@@ -462,36 +468,15 @@ mod tests {
             check_parser_errors(&p);
 
             assert_eq!(program.statements.len(), 1);
-            let stmt = match &program.statements[0] {
-                Statement::Expression(e) => e,
-                _ => panic!(
-                    "expected expression statement to be parsed, got '{}' instead",
-                    program.statements[0]
-                ),
-            };
-            let exp = match &stmt.expression {
-                Some(Expression::Prefix(p)) => p,
-                _ => panic!(
-                    "expected prefix expression to be parsed, got '{}' instead",
-                    stmt.expression
-                        .as_ref()
-                        .map(|x| x.to_string())
-                        .unwrap_or_default()
-                ),
-            };
+            let stmt = program.statements[0].as_expression().unwrap();
+            let exp = stmt.expression.as_ref().unwrap().as_prefix().unwrap();
             assert_eq!(exp.operator, test.operator);
             test_integer_literal(&exp.right, test.integer_value);
         }
     }
 
     fn test_integer_literal(expr: &Expression, value: i64) {
-        let i = match expr {
-            Expression::IntegerLiteral(i) => i,
-            _ => panic!(
-                "expected integer literal to be parsed, got '{}' instead",
-                expr
-            ),
-        };
+        let i = expr.as_integer_literal().unwrap();
         assert_eq!(i.value, value);
         assert_eq!(i.token_literal(), value.to_string());
     }
@@ -599,5 +584,60 @@ mod tests {
             "3 + 4 * 5 == 3 * 1 + 4 * 5",
             expect![["((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"]],
         );
+    }
+
+    #[test]
+    fn boolean_true() {
+        check("true", expect![["true"]]);
+    }
+
+    #[test]
+    fn boolean_false() {
+        check("false", expect![["false"]]);
+    }
+
+    #[test]
+    fn boolean_compare() {
+        check("1 > 5 == false", expect![["((1 > 5) == false)"]]);
+    }
+
+    #[test]
+    fn boolean_equals() {
+        check("true == true", expect![["(true == true)"]]);
+    }
+
+    #[test]
+    fn boolean_not_equals() {
+        check("true != false", expect![["(true != false)"]]);
+    }
+
+    #[test]
+    fn not_true() {
+        check("!true", expect![["(!true)"]]);
+    }
+
+    #[test]
+    fn not_false() {
+        check("!false", expect![["(!false)"]]);
+    }
+
+    #[test]
+    fn not_not_true() {
+        check("!!true", expect![["(!(!true))"]]);
+    }
+
+    #[test]
+    fn insignificant_parentheses() {
+        check("1 + (2 + 3) + 4", expect![["((1 + (2 + 3)) + 4)"]]);
+    }
+
+    #[test]
+    fn grouped_addition() {
+        check("(2 + 2) * 10", expect![["((2 + 2) * 10)"]]);
+    }
+
+    #[test]
+    fn unary_on_group() {
+        check("-(5 + 5)", expect![["(-(5 + 5))"]]);
     }
 }
