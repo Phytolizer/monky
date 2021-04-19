@@ -14,6 +14,8 @@ pub enum Node {
     Expression(Expression),
     Statement(Statement),
     Program(Program),
+    IntegerLiteral(IntegerLiteral),
+    ExpressionStatement(ExpressionStatement),
 }
 
 impl TokenLiteral for Node {
@@ -22,6 +24,8 @@ impl TokenLiteral for Node {
             Node::Expression(e) => e.token_literal(),
             Node::Statement(s) => s.token_literal(),
             Node::Program(p) => p.token_literal(),
+            Node::IntegerLiteral(i) => i.token_literal(),
+            Node::ExpressionStatement(e) => e.token_literal(),
         }
     }
 }
@@ -35,6 +39,8 @@ impl Display for Node {
                 Node::Expression(n) => n.to_string(),
                 Node::Statement(n) => n.to_string(),
                 Node::Program(n) => n.to_string(),
+                Node::IntegerLiteral(n) => n.to_string(),
+                Node::ExpressionStatement(n) => n.to_string(),
             }
         )
     }

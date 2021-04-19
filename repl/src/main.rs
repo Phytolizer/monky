@@ -2,6 +2,8 @@ use dialoguer::console::style;
 use dialoguer::console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Input;
+use monky::ast::Node;
+use monky::evaluator::eval;
 use monky::parser::Parser;
 use slog::warn;
 use slog::Drain;
@@ -35,7 +37,10 @@ fn main() {
             warn!(log, "{}", error);
         }
 
-        println!("{}", program);
-        println!("{}", program.pretty_print());
+        let evaluated = eval(Node::Program(program));
+
+        if let Some(o) = evaluated {
+            println!("=> {}", o);
+        }
     }
 }
