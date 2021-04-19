@@ -6,8 +6,10 @@ use once_cell::sync::Lazy;
 
 use crate::ast::BlockStatement;
 use crate::ast::Boolean;
+use crate::ast::CallExpression;
 use crate::ast::Expression;
 use crate::ast::ExpressionStatement;
+use crate::ast::FunctionLiteral;
 use crate::ast::Identifier;
 use crate::ast::IfExpression;
 use crate::ast::InfixExpression;
@@ -45,6 +47,7 @@ static PREFIX_PARSE_FNS: Lazy<HashMap<TokenKind, PrefixParseFn>> = Lazy::new(|| 
         TokenKind::False => parse_boolean_expression as PrefixParseFn,
         TokenKind::ParenL => parse_grouped_expression as PrefixParseFn,
         TokenKind::If => parse_if_expression as PrefixParseFn,
+        TokenKind::Function => parse_fn_expression as PrefixParseFn,
     }
 });
 
@@ -58,6 +61,7 @@ static INFIX_PARSE_FNS: Lazy<HashMap<TokenKind, InfixParseFn>> = Lazy::new(|| {
         TokenKind::Neq => parse_infix_expression as InfixParseFn,
         TokenKind::Lt => parse_infix_expression as InfixParseFn,
         TokenKind::Gt => parse_infix_expression as InfixParseFn,
+        TokenKind::ParenL => parse_call_expression as InfixParseFn,
     }
 });
 
@@ -71,6 +75,7 @@ static PRECEDENCES: Lazy<HashMap<TokenKind, Precedence>> = Lazy::new(|| {
         TokenKind::Minus => Precedence::Sum,
         TokenKind::Slash => Precedence::Product,
         TokenKind::Star => Precedence::Product,
+        TokenKind::ParenL => Precedence::Call,
     }
 });
 
@@ -136,8 +141,8 @@ impl<'s> Parser<'s> {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.cur_token.as_ref().unwrap().kind {
             TokenKind::Let => self.parse_let_statement().map(Statement::Let),
-            TokenKind::Return => self.parse_return_statement().map(Statement::Return),
-            _ => self.parse_expression_statement().map(Statement::Expression),
+            TokenKind::Return => Some(Statement::Return(self.parse_return_statement())),
+            _ => Some(Statement::Expression(self.parse_expression_statement())),
         }
     }
 
@@ -158,18 +163,17 @@ impl<'s> Parser<'s> {
             return None;
         }
 
-        while !self.cur_token_is(TokenKind::Semicolon) {
+        self.next_token();
+        let value = parse_expression(self, Precedence::Lowest);
+
+        if self.peek_token_is(TokenKind::Semicolon) {
             self.next_token();
         }
 
-        Some(LetStatement {
-            token,
-            name,
-            ..Default::default()
-        })
+        Some(LetStatement { token, name, value })
     }
 
-    fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
+    fn parse_return_statement(&mut self) -> ReturnStatement {
         let mut stmt = ReturnStatement {
             token: self.cur_token.as_ref().unwrap().clone(),
             ..Default::default()
@@ -177,14 +181,16 @@ impl<'s> Parser<'s> {
 
         self.next_token();
 
-        while !self.cur_token_is(TokenKind::Semicolon) {
+        stmt.value = parse_expression(self, Precedence::Lowest);
+
+        if self.peek_token_is(TokenKind::Semicolon) {
             self.next_token();
         }
 
-        Some(stmt)
+        stmt
     }
 
-    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
+    fn parse_expression_statement(&mut self) -> ExpressionStatement {
         let mut stmt = ExpressionStatement {
             token: self.cur_token.as_ref().unwrap().clone(),
             ..Default::default()
@@ -194,7 +200,7 @@ impl<'s> Parser<'s> {
         if self.peek_token_is(TokenKind::Semicolon) {
             self.next_token();
         }
-        Some(stmt)
+        stmt
     }
 
     fn cur_token_is(&self, kind: TokenKind) -> bool {
@@ -401,6 +407,94 @@ impl<'s> Default for Parser<'s> {
     }
 }
 
+fn parse_fn_expression(p: &mut Parser) -> Option<Expression> {
+    let token = p.cur_token.as_ref().unwrap().clone();
+
+    if !p.expect_peek(TokenKind::ParenL) {
+        return None;
+    }
+
+    let parameters = parse_fn_parameters(p)?;
+
+    if !p.expect_peek(TokenKind::BraceL) {
+        return None;
+    }
+
+    let body = parse_block_statement(p);
+
+    Some(Expression::Function(FunctionLiteral {
+        token,
+        parameters,
+        body: Box::new(body),
+    }))
+}
+
+fn parse_fn_parameters(p: &mut Parser) -> Option<Vec<Identifier>> {
+    if p.peek_token_is(TokenKind::ParenR) {
+        p.next_token();
+        return Some(vec![]);
+    }
+
+    p.next_token();
+    let mut identifiers = vec![];
+    let ident = Identifier {
+        token: p.cur_token.as_ref().unwrap().clone(),
+        value: p.cur_token.as_ref().unwrap().literal.clone(),
+    };
+    identifiers.push(ident);
+
+    while p.peek_token_is(TokenKind::Comma) {
+        p.next_token();
+        p.next_token();
+
+        let ident = Identifier {
+            token: p.cur_token.as_ref().unwrap().clone(),
+            value: p.cur_token.as_ref().unwrap().literal.clone(),
+        };
+        identifiers.push(ident);
+    }
+
+    if !p.expect_peek(TokenKind::ParenR) {
+        None
+    } else {
+        Some(identifiers)
+    }
+}
+
+fn parse_call_expression(p: &mut Parser, expression: Expression) -> Option<Expression> {
+    let token = p.cur_token.as_ref().unwrap().clone();
+    let function = Box::new(expression);
+    let arguments = parse_call_arguments(p)?;
+    Some(Expression::Call(CallExpression {
+        token,
+        function,
+        arguments,
+    }))
+}
+
+fn parse_call_arguments(p: &mut Parser) -> Option<Vec<Expression>> {
+    let mut args = vec![];
+    if p.peek_token_is(TokenKind::ParenR) {
+        p.next_token();
+        return Some(args);
+    }
+
+    p.next_token();
+    args.push(parse_expression(p, Precedence::Lowest)?);
+
+    while p.peek_token_is(TokenKind::Comma) {
+        p.next_token();
+        p.next_token();
+        args.push(parse_expression(p, Precedence::Lowest)?);
+    }
+
+    if !p.expect_peek(TokenKind::ParenR) {
+        None
+    } else {
+        Some(args)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use expect_test::expect;
@@ -435,7 +529,7 @@ mod tests {
             let stmt = &program.statements[i];
             test_let_statement(stmt, expected_identifier);
 
-            // expected_value.assert_eq(&stmt.as_let().unwrap().value.as_ref().unwrap().to_string());
+            expected_value.assert_eq(&stmt.as_let().unwrap().value.as_ref().unwrap().to_string());
         }
     }
 
@@ -769,10 +863,12 @@ mod tests {
         assert_eq!(exp.consequence.to_string(), "x");
         assert_eq!(exp.alternative.as_ref().unwrap().to_string(), "y");
 
-        check_pretty(input, expect![[r#"
+        check_pretty(
+            input,
+            expect![[r#"
             Program
-            └─ Statement "if(x < y) xelse y"
-               └─ If "if(x < y) xelse y"
+            └─ Statement "if(x < y) x else y"
+               └─ If "if(x < y) x else y"
                   ├─ Infix "(x < y)"
                   │  ├─ Identifier "x"
                   │  └─ Identifier "y"
@@ -782,6 +878,141 @@ mod tests {
                   └─ BlockStatement "y"
                      └─ Statement "y"
                         └─ Identifier "y"
-        "#]]);
+        "#]],
+        );
+    }
+
+    #[test]
+    fn simple_function() {
+        check_pretty(
+            "fn(x, y) { x + y }",
+            expect![[r#"
+            Program
+            └─ Statement "fn(x, y)(x + y)"
+               └─ Function "fn(x, y)(x + y)"
+                  ├─ Identifier "x"
+                  ├─ Identifier "y"
+                  └─ BlockStatement "(x + y)"
+                     └─ Statement "(x + y)"
+                        └─ Infix "(x + y)"
+                           ├─ Identifier "x"
+                           └─ Identifier "y"
+        "#]],
+        )
+    }
+
+    #[test]
+    fn fn_no_params() {
+        check_pretty(
+            "fn() {}",
+            expect![[r#"
+            Program
+            └─ Statement "fn()"
+               └─ Function "fn()"
+                  └─ BlockStatement ""
+        "#]],
+        );
+    }
+
+    #[test]
+    fn fn_one_param() {
+        check_pretty(
+            "fn(x) {}",
+            expect![[r#"
+            Program
+            └─ Statement "fn(x)"
+               └─ Function "fn(x)"
+                  ├─ Identifier "x"
+                  └─ BlockStatement ""
+        "#]],
+        )
+    }
+
+    #[test]
+    fn fn_more_params() {
+        check_pretty(
+            "fn(x, y, z) {}",
+            expect![[r#"
+            Program
+            └─ Statement "fn(x, y, z)"
+               └─ Function "fn(x, y, z)"
+                  ├─ Identifier "x"
+                  ├─ Identifier "y"
+                  ├─ Identifier "z"
+                  └─ BlockStatement ""
+        "#]],
+        )
+    }
+
+    #[test]
+    fn call_expression() {
+        check_pretty(
+            "add(1, 2 * 3, 4 + 5)",
+            expect![[r#"
+            Program
+            └─ Statement "add(1, (2 * 3), (4 + 5))"
+               └─ Call "add(1, (2 * 3), (4 + 5))"
+                  ├─ Identifier "add"
+                  ├─ IntegerLiteral "1"
+                  ├─ Infix "(2 * 3)"
+                  │  ├─ IntegerLiteral "2"
+                  │  └─ IntegerLiteral "3"
+                  └─ Infix "(4 + 5)"
+                     ├─ IntegerLiteral "4"
+                     └─ IntegerLiteral "5"
+        "#]],
+        )
+    }
+
+    #[test]
+    fn call_expression_precedence() {
+        check_pretty(
+            "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+            expect![[r#"
+            Program
+            └─ Statement "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"
+               └─ Call "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"
+                  ├─ Identifier "add"
+                  ├─ Identifier "a"
+                  ├─ Identifier "b"
+                  ├─ IntegerLiteral "1"
+                  ├─ Infix "(2 * 3)"
+                  │  ├─ IntegerLiteral "2"
+                  │  └─ IntegerLiteral "3"
+                  ├─ Infix "(4 + 5)"
+                  │  ├─ IntegerLiteral "4"
+                  │  └─ IntegerLiteral "5"
+                  └─ Call "add(6, (7 * 8))"
+                     ├─ Identifier "add"
+                     ├─ IntegerLiteral "6"
+                     └─ Infix "(7 * 8)"
+                        ├─ IntegerLiteral "7"
+                        └─ IntegerLiteral "8"
+        "#]],
+        )
+    }
+
+    #[test]
+    fn call_with_complex_expression() {
+        check_pretty(
+            "add(a + b + c * d / f + g)",
+            expect![[r#"
+            Program
+            └─ Statement "add((((a + b) + ((c * d) / f)) + g))"
+               └─ Call "add((((a + b) + ((c * d) / f)) + g))"
+                  ├─ Identifier "add"
+                  └─ Infix "(((a + b) + ((c * d) / f)) + g)"
+                     ├─ Infix "((a + b) + ((c * d) / f))"
+                     │  ├─ Infix "(a + b)"
+                     │  │  ├─ Identifier "a"
+                     │  │  └─ Identifier "b"
+                     │  └─ Infix "((c * d) / f)"
+                     │     ├─ Infix "(c * d)"
+                     │     │  ├─ Identifier "c"
+                     │     │  └─ Identifier "d"
+                     │     └─ Identifier "f"
+                     └─ Identifier "g"
+        "#]],
+        )
     }
 }

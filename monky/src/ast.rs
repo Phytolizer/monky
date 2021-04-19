@@ -50,6 +50,8 @@ pub enum Expression {
     Infix(InfixExpression),
     Boolean(Boolean),
     If(IfExpression),
+    Function(FunctionLiteral),
+    Call(CallExpression),
 }
 
 impl TokenLiteral for Expression {
@@ -61,6 +63,8 @@ impl TokenLiteral for Expression {
             Self::Infix(i) => i.token_literal(),
             Self::Boolean(b) => b.token_literal(),
             Self::If(i) => i.token_literal(),
+            Self::Function(f) => f.token_literal(),
+            Self::Call(c) => c.token_literal(),
         }
     }
 }
@@ -77,6 +81,8 @@ impl Display for Expression {
                 Self::Infix(i) => i.to_string(),
                 Self::Boolean(b) => b.to_string(),
                 Self::If(i) => i.to_string(),
+                Self::Function(f) => f.to_string(),
+                Self::Call(c) => c.to_string(),
             }
         )
     }
@@ -188,6 +194,8 @@ impl<'a> GenericNode<'a> for Expression {
             Expression::Infix(_) => "Infix",
             Expression::Boolean(_) => "Boolean",
             Expression::If(_) => "If",
+            Expression::Function(_) => "Function",
+            Expression::Call(_) => "Call",
         }
     }
 
@@ -199,6 +207,8 @@ impl<'a> GenericNode<'a> for Expression {
             Expression::Infix(e) => e.children(),
             Expression::Boolean(e) => e.children(),
             Expression::If(e) => e.children(),
+            Expression::Function(e) => e.children(),
+            Expression::Call(e) => e.children(),
         }
     }
 }
@@ -508,7 +518,7 @@ impl Display for IfExpression {
             self.consequence,
             self.alternative
                 .as_ref()
-                .map(|c| format!("else {}", c))
+                .map(|c| format!(" else {}", c))
                 .unwrap_or_default()
         )
     }
@@ -543,6 +553,87 @@ impl<'a> GenericNode<'a> for BlockStatement {
             c.push(child);
         }
         c
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionLiteral {
+    pub token: Token,
+    pub parameters: Vec<Identifier>,
+    pub body: Box<BlockStatement>,
+}
+
+impl TokenLiteral for FunctionLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for FunctionLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}({}){}",
+            self.token_literal(),
+            join(self.parameters.iter(), ", "),
+            self.body
+        )
+    }
+}
+
+impl<'a> GenericNode<'a> for FunctionLiteral {
+    fn name(&self) -> &'static str {
+        "FunctionLiteral"
+    }
+
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        let mut children = Vec::<&dyn GenericNode<'_>>::new();
+        for param in &self.parameters {
+            children.push(param);
+        }
+        children.push(self.body.as_ref());
+        children
+    }
+}
+
+#[derive(Debug)]
+pub struct CallExpression {
+    pub token: Token,
+    pub function: Box<Expression>,
+    pub arguments: Vec<Expression>,
+}
+
+impl TokenLiteral for CallExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for CallExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.function,
+            join(self.arguments.iter(), ", ")
+        )
+    }
+}
+
+impl<'a> GenericNode<'a> for CallExpression {
+    fn name(&self) -> &'static str {
+        "Call"
+    }
+
+    #[allow(clippy::vec_init_then_push)]
+    fn children(&'a self) -> Vec<&'a dyn GenericNode<'a>> {
+        let mut children = Vec::<&dyn GenericNode<'_>>::new();
+        children.push(self.function.as_ref());
+        for arg in &self.arguments {
+            children.push(arg);
+        }
+
+        children
     }
 }
 
@@ -596,6 +687,7 @@ mod tests {
                   └─ Infix "(2 * 3)"
                      ├─ IntegerLiteral "2"
                      └─ IntegerLiteral "3"
-        "#]].assert_eq(&program.pretty_print());
+        "#]]
+        .assert_eq(&program.pretty_print());
     }
 }
