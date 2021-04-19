@@ -2,8 +2,6 @@ use itertools::join;
 use monky_test_macros::IsAs;
 
 use std::fmt::Display;
-use std::iter::empty;
-use std::iter::once;
 
 use crate::token::Token;
 
