@@ -13,3 +13,4 @@ monky-test-macros = { path = "../monky-test-macros" }
 once_cell = "1.7.2"
 
 [dev-dependencies]
+expect-test = "1.1.0"

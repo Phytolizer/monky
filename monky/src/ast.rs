@@ -41,6 +41,8 @@ impl Display for Node {
 pub enum Expression {
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
+    Prefix(PrefixExpression),
+    Infix(InfixExpression),
 }
 
 impl TokenLiteral for Expression {
@@ -48,6 +50,8 @@ impl TokenLiteral for Expression {
         match self {
             Self::Identifier(e) => e.token_literal(),
             Self::IntegerLiteral(i) => i.token_literal(),
+            Self::Prefix(p) => p.token_literal(),
+            Self::Infix(i) => i.token_literal(),
         }
     }
 }
@@ -60,6 +64,8 @@ impl Display for Expression {
             match self {
                 Self::Identifier(e) => e.to_string(),
                 Self::IntegerLiteral(i) => i.to_string(),
+                Self::Prefix(p) => p.to_string(),
+                Self::Infix(i) => i.to_string(),
             }
         )
     }
@@ -219,7 +225,7 @@ impl Display for Identifier {
 #[derive(Debug)]
 pub struct IntegerLiteral {
     pub token: Token,
-    pub value: i32,
+    pub value: i64,
 }
 
 impl TokenLiteral for IntegerLiteral {
@@ -231,6 +237,45 @@ impl TokenLiteral for IntegerLiteral {
 impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.token_literal())
+    }
+}
+
+#[derive(Debug)]
+pub struct PrefixExpression {
+    pub token: Token,
+    pub operator: String,
+    pub right: Box<Expression>,
+}
+
+impl TokenLiteral for PrefixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for PrefixExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}{})", self.operator, self.right)
+    }
+}
+
+#[derive(Debug)]
+pub struct InfixExpression {
+    pub token: Token,
+    pub left: Box<Expression>,
+    pub operator: String,
+    pub right: Box<Expression>,
+}
+
+impl TokenLiteral for InfixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Display for InfixExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({} {} {})", self.left, self.operator, self.right)
     }
 }
 
