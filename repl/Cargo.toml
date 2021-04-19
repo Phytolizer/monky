@@ -10,5 +10,7 @@ edition = "2018"
 dialoguer = "0.8.0"
 indicatif = "0.15.0"
 log = "0.4.14"
-log4rs = { version = "1.0.0", features = ["console_appender"] }
 monky = { path = "../monky" }
+slog = "2.7.0"
+slog-async = "2.6.0"
+slog-term = "2.8.0"
