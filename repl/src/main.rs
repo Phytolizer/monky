@@ -3,7 +3,6 @@ use dialoguer::console::Style;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::Input;
 use log::warn;
-use monky::lexer::Lexer;
 use monky::parser::Parser;
 
 fn main() {
